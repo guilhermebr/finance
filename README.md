@@ -1,300 +1,326 @@
-# Go Template
+# Personal Finance Tracker
 
-A modern, production-ready Golang project template featuring clean architecture, database migrations, testing utilities, and development tooling.
+A comprehensive personal finance tracking application built with **Go**, **HTMX**, **Tailwind CSS**, and **PostgreSQL**. This project demonstrates modern web development patterns and clean architecture principles.
 
-## Features
+> **Built with AI Assistance**: This project was developed in collaboration with **Claude Sonnet 4** to showcase how AI can accelerate full-stack development while maintaining high code quality and best practices.
 
-- 🏗️ **Clean Architecture**: Well-organized project structure with domain-driven design
-- 🗃️ **Database Support**: PostgreSQL integration with migrations and connection pooling
-- 🛠️ **Code Generation**: SQLC for type-safe SQL queries
-- 🧪 **Testing**: Comprehensive testing setup with Docker integration
-- 🔍 **Quality Tools**: Linting, security scanning, and code coverage
-- 🐳 **Docker**: Optimized multi-stage builds with security best practices
-- ⚙️ **Configuration**: Environment-based configuration management
-- 📦 **Multiple Binaries**: Service, CLI, and Worker applications
+## 🎯 The Original Vision
 
-## Project Structure
-
-```
-├── cmd/                    # Application entry points
-│   ├── service/           # Main API service
-│   ├── cli/               # Command-line interface
-│   └── worker/            # Background worker
-├── internal/              # Private application code
-│   ├── api/               # HTTP handlers and routing
-│   ├── config/            # Configuration management
-│   └── repository/        # Data access layer
-├── domain/                # Business logic and entities
-│   ├── entities/          # Domain models
-│   ├── example/           # Example implementations
-│   └── errors.go          # Domain errors
-├── build/                 # Compiled binaries
-├── docker-compose.yaml    # Development environment
-├── Makefile              # Development commands
-├── sqlc.yaml             # SQLC configuration
-└── change_repo.sh        # Repository name change script
-```
-
-## Quick Start
-
-### 1. Use This Template
-
-Click "Use this template" on GitHub or clone the repository:
-
+### Started from Go Template
 ```bash
-git clone https://github.com/guilhermebr/go-template.git your-project-name
-cd your-project-name
+# Clone the go-template repository
+git clone https://github.com/guilhermebr/go-template.git finance
+cd finance
+
+# Run the change repository script
+./change_repo.sh finance
 ```
 
-### 2. Change Repository Name
+This project started with a simple request over the template:
 
-Run the provided script to update all references to the new repository name:
+> *"I want to build a personal finance application that works like a ledger, with accounts, transactions, balances, and categories (like Salary for income, Credit Card/Groceries/Food for expenses). I want both a backend service and a frontend with a nice UI using Go templates with HTMX and Tailwind CSS."*
 
+## 🚀 What We Built
+
+### Core Features
+
+- 💰 **Account Management**: Multiple account types (checking, savings, credit cards, investments, cash)
+- 📊 **Smart Categories**: Organized income and expense categorization with color coding
+- 💸 **Transaction Tracking**: Complete transaction history with status tracking (pending, cleared, cancelled)
+- 🧮 **Automatic Balance Calculations**: Real-time balance updates using database triggers
+- 🎨 **Modern Web Interface**: Responsive UI built with Tailwind CSS and HTMX
+- 🔄 **Real-time Updates**: Seamless user experience with HTMX partial updates
+- 🛡️ **Type Safety**: SQLC-generated database code for compile-time safety
+
+### Architecture
+
+- **Clean Architecture**: Domain-driven design with proper separation of concerns
+- **RESTful API**: Complete REST endpoints for all operations
+- **Database-First**: PostgreSQL with proper relationships and constraints
+- **Modern Frontend**: Server-side rendering with HTMX for dynamic interactions
+
+## 🏗️ Development Journey
+
+### How This Project Was Created
+
+This project showcases the power of AI-assisted development. Here's how we built it step by step:
+
+#### Phase 1: Foundation & Domain Design
+1. **Domain Entities**: Created Account, Category, Transaction, and Balance entities
+2. **Use Cases**: Implemented business logic for each domain with proper validation
+3. **Repository Pattern**: Database abstraction layer with interfaces
+
+#### Phase 2: Database & Persistence  
+1. **PostgreSQL Schema**: Designed relational database with proper constraints
+2. **SQLC Integration**: Type-safe SQL query generation
+3. **Database Triggers**: Automatic balance calculation triggers
+4. **Sample Data**: Pre-populated categories for immediate use
+
+#### Phase 3: API Layer
+1. **REST Endpoints**: Full CRUD operations for all entities
+2. **Error Handling**: Comprehensive error handling and validation
+3. **JSON DTOs**: Proper request/response data transfer objects
+
+#### Phase 4: Web Frontend
+1. **Go Templates**: Server-side rendered HTML templates
+2. **HTMX Integration**: Dynamic interactions without JavaScript
+3. **Tailwind CSS**: Modern, responsive styling
+4. **Component Architecture**: Reusable template components
+
+#### Phase 5: Integration & Testing
+1. **Database Setup**: Docker PostgreSQL container
+2. **Environment Configuration**: Proper config management
+3. **End-to-End Testing**: Full application testing
+
+## 🛠️ Technology Stack
+
+### Backend
+- **Go 1.24+**: Modern Go with generics and latest features
+- **Gorilla Mux**: HTTP routing
+- **PostgreSQL**: Primary database with advanced features
+- **SQLC**: Type-safe SQL query generation
+- **pgx/v5**: High-performance PostgreSQL driver
+
+### Frontend
+- **Go Templates**: Server-side rendering
+- **HTMX**: Dynamic web interactions
+- **Tailwind CSS**: Utility-first CSS framework
+- **Alpine.js**: Minimal JavaScript framework (via CDN)
+
+### DevOps & Tooling
+- **Docker**: Containerized development environment
+- **Go Migrate**: Database migration management
+- **Make**: Build automation
+- **golangci-lint**: Code quality and linting
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Go 1.24+
+- Docker and Docker Compose
+- Make
+
+### 1. Clone and Setup
 ```bash
-./change_repo.sh your-new-repo-name
-```
-
-This script will:
-- Update the module name in `go.mod`
-- Replace all import paths throughout the codebase
-- Update any references in configuration files
-
-### 3. Install Dependencies
-
-Set up the development environment:
-
-```bash
+git clone <repository-url>
+cd finance
 make setup
 ```
 
-This will install all required tools:
-- `golangci-lint` - Linting
-- `migrate` - Database migrations
-- `sqlc` - SQL code generation
-- `gotestfmt` - Test output formatting
-- `gosec` - Security analysis
-- `moq` - Mock generation
-
-### 4. Start Development Environment
-
-Start the PostgreSQL database:
-
+### 2. Start Database
 ```bash
 docker-compose up -d db
 ```
 
-Run database migrations:
-
+### 3. Create Database and Run Migrations
 ```bash
-make migration/up
-```
+# Create the finance database
+docker exec -it db createdb -U postgres finance
 
-### 5. Build and Run
-
-Compile the service:
-
-```bash
-make compile
-```
-
-Run the service:
-
-```bash
-./build/service
-```
-
-## Development
-
-### Environment Configuration
-
-Copy and modify the environment file:
-
-```bash
-cp .env-dev .env
-```
-
-Key configuration options:
-- `DATABASE_*`: PostgreSQL connection settings
-- `API_ADDRESS`: Service bind address (default: `0.0.0.0:3000`)
-- `ENVIRONMENT`: Runtime environment (`development`/`production`)
-
-### Available Make Commands
-
-#### Setup & Installation
-- `make setup` - Install all development tools
-- `make install-*` - Install specific tools
-
-#### Code Generation
-- `make generate` - Generate all code (SQLC, mocks, etc.)
-- `make sqlc-generate` - Generate SQLC code only
-
-#### Building
-- `make compile` - Build the service binary
-
-#### Testing
-- `make test` - Run tests (short mode)
-- `make test-full` - Run all tests including integration tests
-- `make coverage` - Generate test coverage report
-
-#### Quality Assurance
-- `make lint` - Run linters
-- `make gosec` - Run security analysis
-
-#### Database Migrations
-- `make migration/create` - Create new migration files
-- `make migration/up` - Apply all pending migrations
-- `make migration/down` - Rollback all migrations
-
-### Database Migrations
-
-Create a new migration:
-
-```bash
-make migration/create
-# Enter migration name when prompted
-```
-
-Apply migrations:
-
-```bash
-# Set environment variables first
+# Run migrations
 export DATABASE_HOST=localhost
-export DATABASE_USER=postgres
+export DATABASE_USER=postgres  
 export DATABASE_PASSWORD=postgres
-export DATABASE_NAME=app
-
+export DATABASE_NAME=finance
 make migration/up
 ```
 
-### Code Generation
-
-This template uses SQLC for type-safe database queries. After modifying SQL files:
-
+### 4. Build Applications
 ```bash
-make generate
+# Build both API and Web services
+go build -o bin/service cmd/service/main.go
+go build -o bin/web cmd/web/main.go
 ```
 
-## Testing
-
-### Unit Tests
-
-Run quick tests:
-
+### 5. Run Applications
 ```bash
-make test
+# Terminal 1: Start API service (port 8000)
+export DATABASE_HOST=localhost DATABASE_USER=postgres DATABASE_PASSWORD=postgres DATABASE_NAME=finance
+./bin/service
+
+# Terminal 2: Start Web frontend (port 8080)  
+export DATABASE_HOST=localhost DATABASE_USER=postgres DATABASE_PASSWORD=postgres DATABASE_NAME=finance
+./bin/web
 ```
 
-### Integration Tests
+### 6. Access Applications
+- **Web Interface**: http://localhost:8080
+- **REST API**: http://localhost:8000
+- **API Health Check**: http://localhost:8000/health
 
-Run full test suite including integration tests:
+## 📖 API Documentation
 
-```bash
-make test-full
+### Accounts
+- `GET /api/v1/accounts` - List all accounts
+- `POST /api/v1/accounts` - Create account
+- `GET /api/v1/accounts/{id}` - Get account by ID
+- `PUT /api/v1/accounts/{id}` - Update account
+- `DELETE /api/v1/accounts/{id}` - Delete account
+
+### Categories  
+- `GET /api/v1/categories` - List all categories
+- `POST /api/v1/categories` - Create category
+- `GET /api/v1/categories/{id}` - Get category by ID
+- `PUT /api/v1/categories/{id}` - Update category
+- `DELETE /api/v1/categories/{id}` - Delete category
+
+### Transactions
+- `GET /api/v1/transactions` - List all transactions
+- `POST /api/v1/transactions` - Create transaction
+- `GET /api/v1/transactions/{id}` - Get transaction by ID
+- `PUT /api/v1/transactions/{id}` - Update transaction
+- `DELETE /api/v1/transactions/{id}` - Delete transaction
+
+### Balances
+- `GET /api/v1/balances` - Get all account balances
+- `GET /api/v1/balances/{account_id}` - Get specific account balance
+- `POST /api/v1/balances/refresh` - Refresh all balances
+
+## 🎨 Web Interface Features
+
+### Dashboard
+- Account balance overview
+- Recent transaction summary  
+- Quick action buttons
+- Financial health indicators
+
+### Account Management
+- Add/edit/delete accounts
+- Multiple account types
+- Real-time balance display
+
+### Category Organization
+- Income vs expense categorization
+- Color-coded categories
+- Default categories included
+
+### Transaction Tracking
+- Add transactions with validation
+- Status tracking (pending/cleared/cancelled)
+- Account and category selection
+- Date and amount validation
+
+## 🏗️ Project Structure
+
+```
+├── cmd/                           # Application entry points
+│   ├── service/main.go           # REST API service
+│   └── web/main.go               # Web frontend service
+├── domain/                       # Business logic layer
+│   ├── entities/                 # Domain entities
+│   └── finance/                  # Finance-specific use cases
+├── internal/                     # Private application code
+│   ├── api/                      # REST API handlers
+│   ├── config/                   # Configuration management
+│   ├── repository/pg/            # PostgreSQL repositories
+│   └── web/                      # Web frontend handlers
+│       ├── handlers.go           # HTTP handlers
+│       ├── templates/            # HTML templates
+│       └── static/               # Static assets
+├── docker-compose.yaml           # Development environment
+├── Makefile                      # Development commands
+└── sqlc.yaml                     # SQLC configuration
 ```
 
-### Test Coverage
-
-Generate coverage report:
+## 🔧 Development Commands
 
 ```bash
-make coverage
+# Setup development environment
+make setup
+
+# Database operations
+make migration/create          # Create new migration
+make migration/up             # Apply migrations
+make migration/down           # Rollback migrations
+
+# Code generation
+make generate                 # Generate all code
+make sqlc-generate           # Generate SQLC code only
+
+# Building
+make compile                 # Build service binary
+go build -o bin/web cmd/web/main.go  # Build web frontend
+
+# Testing
+make test                    # Run tests
+make test-full              # Run all tests including integration
+make coverage               # Generate coverage report
+
+# Code quality
+make lint                   # Run linters
+make gosec                  # Security analysis
 ```
 
-## Dependencies
+## 💡 Key Design Decisions
 
-This template includes several carefully selected dependencies:
+### Why HTMX?
+- **Server-side rendering**: Leverages Go's template system
+- **Minimal JavaScript**: Reduces complexity and bundle size
+- **Progressive enhancement**: Works without JavaScript
+- **Real-time updates**: Seamless partial page updates
 
-### Core Dependencies
-- **Chi Router** (`github.com/go-chi/chi/v5`) - HTTP router
-- **pgx** (`github.com/jackc/pgx/v5`) - PostgreSQL driver
-- **migrate** (`github.com/golang-migrate/migrate/v4`) - Database migrations
-- **conf** (`github.com/ardanlabs/conf/v3`) - Configuration management
-- **uuid** (`github.com/gofrs/uuid/v5`) - UUID generation
+### Why PostgreSQL?
+- **ACID compliance**: Ensures data consistency for financial data
+- **Advanced features**: Triggers, constraints, and complex queries
+- **Performance**: Excellent performance for transactional workloads
+- **Type safety**: Strong typing matches Go's type system
 
-### Development & Testing
-- **testify** (`github.com/stretchr/testify`) - Testing toolkit
-- **dockertest** (`github.com/ory/dockertest/v3`) - Docker integration testing
-- **godotenv** (`github.com/joho/godotenv`) - Environment file loading
+### Why Clean Architecture?
+- **Testability**: Easy to test business logic in isolation
+- **Maintainability**: Clear separation of concerns
+- **Flexibility**: Easy to change external dependencies
+- **Scalability**: Supports application growth
 
-## Docker
+## 🤝 AI Development Process
 
-This template includes optimized Docker configurations for both development and production use.
+This project demonstrates effective AI-human collaboration:
 
-### Docker Files
+### What AI Excelled At:
+- **Rapid prototyping**: Quickly generated working code structures
+- **Best practices**: Applied Go idioms and patterns consistently
+- **Documentation**: Generated comprehensive code documentation
+- **Testing**: Created thorough test coverage
+- **Integration**: Seamlessly connected all components
 
-- **`Dockerfile`**: Standard production build with Alpine Linux base
-- **`Dockerfile.prod`**: Ultra-secure production build using Google's distroless image
-- **`Dockerfile.migrations`**: Separate container for running database migrations
+### Human Guidance Provided:
+- **Product vision**: Defined the overall application requirements
+- **Architecture decisions**: Chose technology stack and patterns
+- **User experience**: Guided UI/UX design decisions
+- **Business logic**: Validated financial calculation logic
 
-### Building Docker Images
+### Lessons Learned:
+1. **Clear initial requirements** lead to better AI assistance
+2. **Iterative development** works well with AI collaboration
+3. **Code review** remains important even with AI-generated code
+4. **Domain expertise** should guide AI implementation
 
-#### Standard Production Build
-```bash
-# Build the image
-docker build -t go-template:latest .
+## 📝 Next Steps
 
-# Run the container
-docker run -p 3000:3000 \
-  -e DATABASE_HOST=your-db-host \
-  -e DATABASE_USER=your-db-user \
-  -e DATABASE_PASSWORD=your-db-password \
-  -e DATABASE_NAME=your-db-name \
-  go-template:latest
-```
+Potential enhancements for this application:
 
-#### Ultra-Secure Production Build
-```bash
-# Build with distroless base (smallest, most secure)
-docker build -f Dockerfile.prod -t go-template:prod .
+- **Reports & Analytics**: Monthly/yearly financial reports
+- **Budget Management**: Budget tracking and alerts  
+- **Data Import**: CSV/OFX import capabilities
+- **Multi-currency**: Support for multiple currencies
+- **Mobile App**: React Native or Flutter mobile application
+- **Authentication**: User accounts and security
+- **Backup/Export**: Data backup and export features
 
-# Run the container
-docker run -p 3000:3000 \
-  -e DATABASE_HOST=your-db-host \
-  -e DATABASE_USER=your-db-user \
-  -e DATABASE_PASSWORD=your-db-password \
-  -e DATABASE_NAME=your-db-name \
-  go-template:prod
-```
+## 🙏 Acknowledgments
 
-### Docker Compose
+- **Claude Sonnet 4**: AI assistant that helped build this application
+- **Go Community**: For excellent tooling and libraries
+- **HTMX Team**: For making web development simple again
+- **Tailwind CSS**: For excellent utility-first CSS framework
 
-#### Development Environment
-```bash
-# Start all services (database + migrations)
-docker-compose up
+---
 
-# Start only the database
-docker-compose up -d db
+**Built with ❤️ by Human + AI collaboration**
 
-# Run migrations separately
-docker-compose run migrations
-```
-
-#### Production Deployment
-```bash
-# Create production docker-compose.prod.yaml and run
-docker-compose -f docker-compose.prod.yaml up -d
-```
-
-### Image Optimization Features
-
-The Docker builds include several optimizations:
-
-- **Multi-stage builds**: Separate build and runtime stages for smaller final images
-- **Layer caching**: Go modules are downloaded in a separate layer for better cache utilization
-- **Security**: Non-root user execution and minimal attack surface
-- **Static binaries**: Fully static Go binaries for distroless compatibility
-- **Health checks**: Built-in health monitoring for the standard Dockerfile
-- **Build optimization**: Stripped binaries with `-ldflags="-w -s"` for smaller size
-
-### Image Sizes
-
-Approximate final image sizes:
-- **Dockerfile**: ~20MB (Alpine-based)
-- **Dockerfile.prod**: ~15MB (Distroless-based)
-- **Development**: Full Go toolchain (~800MB)
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project serves as a reference for:
+- Modern Go web application development
+- Clean architecture implementation
+- AI-assisted software development
+- HTMX and server-side rendering patterns
+- Financial application design patterns
 
