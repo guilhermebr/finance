@@ -8,7 +8,36 @@ import (
 	"time"
 
 	uuid "github.com/gofrs/uuid/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"math/big"
 )
+
+type Account struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Type        string    `json:"type"`
+	Description *string   `json:"description"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type Balance struct {
+	AccountID        uuid.UUID `json:"accountId"`
+	CurrentBalance   big.Int   `json:"currentBalance"`
+	PendingBalance   big.Int   `json:"pendingBalance"`
+	AvailableBalance big.Int   `json:"availableBalance"`
+	LastCalculated   time.Time `json:"lastCalculated"`
+}
+
+type Category struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Type        string    `json:"type"`
+	Description *string   `json:"description"`
+	Color       *string   `json:"color"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
 
 type Example struct {
 	ID        uuid.UUID `json:"id"`
@@ -16,4 +45,16 @@ type Example struct {
 	Content   string    `json:"content"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type Transaction struct {
+	ID          uuid.UUID   `json:"id"`
+	AccountID   uuid.UUID   `json:"accountId"`
+	CategoryID  uuid.UUID   `json:"categoryId"`
+	Amount      big.Int     `json:"amount"`
+	Description string      `json:"description"`
+	Date        pgtype.Date `json:"date"`
+	Status      string      `json:"status"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	UpdatedAt   time.Time   `json:"updatedAt"`
 }

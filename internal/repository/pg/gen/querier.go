@@ -8,11 +8,57 @@ import (
 	"context"
 
 	uuid "github.com/gofrs/uuid/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"math/big"
 )
 
 type Querier interface {
+	// =============================================================================
+	// ACCOUNTS
+	// =============================================================================
+	CreateAccount(ctx context.Context, name string, type_ string, description *string) (Account, error)
+	// =============================================================================
+	// CATEGORIES
+	// =============================================================================
+	CreateCategory(ctx context.Context, name string, type_ string, description *string, color *string) (Category, error)
 	CreateExample(ctx context.Context, title string, content string) (uuid.UUID, error)
+	// =============================================================================
+	// TRANSACTIONS
+	// =============================================================================
+	CreateTransaction(ctx context.Context, accountID uuid.UUID, categoryID uuid.UUID, amount big.Int, description string, date pgtype.Date, status string) (Transaction, error)
+	DeleteAccount(ctx context.Context, id uuid.UUID) error
+	DeleteCategory(ctx context.Context, id uuid.UUID) error
+	DeleteTransaction(ctx context.Context, id uuid.UUID) error
+	GetAccountByID(ctx context.Context, id uuid.UUID) (Account, error)
+	GetAccountWithBalance(ctx context.Context, id uuid.UUID) (GetAccountWithBalanceRow, error)
+	GetAccountsWithBalances(ctx context.Context) ([]GetAccountsWithBalancesRow, error)
+	GetAllAccounts(ctx context.Context) ([]Account, error)
+	GetAllBalances(ctx context.Context) ([]Balance, error)
+	GetAllCategories(ctx context.Context) ([]Category, error)
+	GetAllTransactions(ctx context.Context) ([]Transaction, error)
+	// =============================================================================
+	// BALANCES
+	// =============================================================================
+	GetBalanceByAccountID(ctx context.Context, accountID uuid.UUID) (Balance, error)
+	GetBalanceSummary(ctx context.Context) (GetBalanceSummaryRow, error)
+	GetCategoriesByType(ctx context.Context, type_ string) ([]Category, error)
+	GetCategoryByID(ctx context.Context, id uuid.UUID) (Category, error)
 	GetExampleByID(ctx context.Context, id uuid.UUID) (Example, error)
+	GetTransactionByID(ctx context.Context, id uuid.UUID) (Transaction, error)
+	// =============================================================================
+	// JOINED QUERIES FOR DETAILED VIEWS
+	// =============================================================================
+	GetTransactionWithDetails(ctx context.Context, id uuid.UUID) (GetTransactionWithDetailsRow, error)
+	GetTransactionsByAccount(ctx context.Context, accountID uuid.UUID) ([]Transaction, error)
+	GetTransactionsByAccountAndDateRange(ctx context.Context, accountID uuid.UUID, date pgtype.Date, date_2 pgtype.Date) ([]Transaction, error)
+	GetTransactionsByCategory(ctx context.Context, categoryID uuid.UUID) ([]Transaction, error)
+	GetTransactionsByDateRange(ctx context.Context, date pgtype.Date, date_2 pgtype.Date) ([]Transaction, error)
+	GetTransactionsWithDetails(ctx context.Context, limit int32, offset int32) ([]GetTransactionsWithDetailsRow, error)
+	RefreshAccountBalance(ctx context.Context, accountUuid uuid.UUID) error
+	UpdateAccount(ctx context.Context, iD uuid.UUID, name string, type_ string, description *string) (Account, error)
+	UpdateCategory(ctx context.Context, iD uuid.UUID, name string, type_ string, description *string, color *string) (Category, error)
+	UpdateTransaction(ctx context.Context, iD uuid.UUID, accountID uuid.UUID, categoryID uuid.UUID, amount big.Int, description string, date pgtype.Date, status string) (Transaction, error)
+	UpdateTransactionStatus(ctx context.Context, iD uuid.UUID, status string) (Transaction, error)
 }
 
 var _ Querier = (*Queries)(nil)
