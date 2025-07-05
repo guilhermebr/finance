@@ -1,0 +1,19 @@
+FROM golang:1.24-alpine
+
+WORKDIR /app
+
+# Install required system packages
+RUN apk add --no-cache git make bash build-base jq
+
+COPY Makefile ./
+
+# Copy migration files
+COPY internal/repository/pg/migrations ./internal/repository/pg/migrations/
+
+# Install migrate tool
+RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+ENV PATH="${PATH}:/go/bin"
+COPY . .
+
+CMD ["make", "migration/up"] 

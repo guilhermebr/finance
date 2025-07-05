@@ -1,0 +1,68 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+LICENSE
+*.md
+
+# Development files
+.env*
+.env-dev
+docker-compose*.yaml
+docker-compose*.yml
+
+# Build artifacts
+build/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test files
+*.test
+coverage.out
+coverage.html
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Node.js (if any frontend assets)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Go specific
+vendor/
+*.out
+
+# Docker files (don't copy other Dockerfiles)
+Dockerfile*
+!Dockerfile
+
+# Scripts that shouldn't be in container
+change_repo.sh
+run_migrations.sh 

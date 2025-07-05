@@ -1,0 +1,47 @@
+version: "3"
+
+networks:
+  app:
+
+services:
+  db:
+    container_name: db
+    image: postgres:latest
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    volumes:
+      - db:/var/lib/postgresql/data
+    networks:
+      - app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrations:
+    container_name: migrations
+    build:
+      context: .
+      dockerfile: Dockerfile.migrations
+    networks:
+      - app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_HOST: db
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: app
+    command: make migration/up
+    restart: "no"
+
+volumes:
+  db:
+    driver: local
