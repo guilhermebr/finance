@@ -5,7 +5,7 @@ package mocks
 
 import (
 	"context"
-	"go-template/domain/entities"
+	"finance/domain/entities"
 	"sync"
 )
 

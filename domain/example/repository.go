@@ -2,7 +2,7 @@ package example
 
 import (
 	"context"
-	"go-template/domain/entities"
+	"finance/domain/entities"
 )
 
 //go:generate moq -skip-ensure -stub -pkg mocks -out mocks/repository.go . Repository

@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"go-template/domain"
-	"go-template/domain/entities"
-	"go-template/internal/repository/pg/gen"
+	"finance/domain"
+	"finance/domain/entities"
+	"finance/internal/repository/pg/gen"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5/pgconn"

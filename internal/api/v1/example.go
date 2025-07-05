@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"go-template/domain"
-	"go-template/domain/entities"
+	"finance/domain"
+	"finance/domain/entities"
 	"log/slog"
 	"net/http"
 

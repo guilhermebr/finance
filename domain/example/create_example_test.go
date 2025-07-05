@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"go-template/domain/entities"
-	"go-template/domain/example/mocks"
+	"finance/domain/entities"
+	"finance/domain/example/mocks"
 
 	"github.com/stretchr/testify/assert"
 )

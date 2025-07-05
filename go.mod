@@ -1,4 +1,4 @@
-module go-template
+module finance
 
 go 1.24.2
 

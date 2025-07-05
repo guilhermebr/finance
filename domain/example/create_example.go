@@ -3,8 +3,8 @@ package example
 import (
 	"context"
 	"fmt"
-	"go-template/domain"
-	"go-template/domain/entities"
+	"finance/domain"
+	"finance/domain/entities"
 )
 
 func (uc UseCase) CreateExample(ctx context.Context, input entities.Example) (string, error) {

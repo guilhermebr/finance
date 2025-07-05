@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"go-template/domain/entities"
+	"finance/domain/entities"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/golang-migrate/migrate/v4"
