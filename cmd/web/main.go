@@ -3,12 +3,10 @@ package main
 import (
 	"context"
 	"errors"
-	"finance/domain/example"
 	"finance/domain/finance"
-	"finance/internal/api"
-	v1 "finance/internal/api/v1"
 	"finance/internal/config"
 	"finance/internal/repository/pg"
+	"finance/internal/web"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -65,9 +63,6 @@ func main() {
 		return
 	}
 
-	// Legacy repository for examples
-	exampleRepo := pg.NewRepository(conn)
-
 	// Finance repositories
 	accountRepo := pg.NewAccountRepository(conn)
 	categoryRepo := pg.NewCategoryRepository(conn)
@@ -80,32 +75,22 @@ func main() {
 	transactionUseCase := finance.NewTransactionUseCase(transactionRepo, accountRepo, categoryRepo, balanceRepo)
 	balanceUseCase := finance.NewBalanceUseCase(balanceRepo, accountRepo)
 
-	// API Handlers V1
-	// ------------------------------------------
-	apiV1 := v1.ApiHandlers{
-		ExampleUseCase:     example.New(exampleRepo),
-		AccountUseCase:     accountUseCase,
-		CategoryUseCase:    categoryUseCase,
-		TransactionUseCase: transactionUseCase,
-		BalanceUseCase:     balanceUseCase,
-	}
+	// Web handlers
+	webHandlers := web.NewHandlers(accountUseCase, categoryUseCase, transactionUseCase, balanceUseCase)
 
-	router := api.Router()
-	apiV1.Routes(router)
-
-	// SERVER
-	// ------------------------------------------
+	// Server
 	server := http.Server{
-		Handler:           router,
-		Addr:              cfg.ApiAddress,
+		Handler:           webHandlers.Router(),
+		Addr:              ":8080", // Different port from API
 		ReadHeaderTimeout: 60 * time.Second,
 	}
-	log.Info("server started",
+
+	log.Info("web server started",
 		slog.String("address", server.Addr),
 	)
 
 	if serverErr := server.ListenAndServe(); serverErr != nil && !errors.Is(serverErr, http.ErrServerClosed) {
-		log.Error("failed to listen and serve server",
+		log.Error("failed to listen and serve web server",
 			slog.String("error", serverErr.Error()),
 		)
 	}

@@ -1,0 +1,130 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="px-4 sm:px-0">
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900">Transactions</h2>
+        <p class="mt-2 text-sm text-gray-600">Track your income and expenses</p>
+    </div>
+
+    <!-- Add Transaction Form -->
+    <div class="bg-white shadow sm:rounded-lg mb-8">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Add New Transaction</h3>
+            <form hx-post="/transactions/create" 
+                  hx-target="#transactions-table" 
+                  hx-swap="outerHTML"
+                  class="space-y-4">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div>
+                        <label for="account_id" class="block text-sm font-medium text-gray-700">Account</label>
+                        <select name="account_id" 
+                                id="account_id" 
+                                required 
+                                class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
+                            <option value="">Select an account</option>
+                            {{range .Accounts}}
+                            <option value="{{.ID}}">{{.Name}} ({{.Type}})</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="category_id" class="block text-sm font-medium text-gray-700">Category</label>
+                        <select name="category_id" 
+                                id="category_id" 
+                                required 
+                                class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
+                            <option value="">Select a category</option>
+                            {{range .Categories}}
+                            <option value="{{.ID}}">{{.Name}} ({{.Type}})</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="amount" class="block text-sm font-medium text-gray-700">Amount</label>
+                        <input type="number" 
+                               name="amount" 
+                               id="amount" 
+                               step="0.01"
+                               required 
+                               class="mt-1 focus:ring-primary focus:border-primary block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                        <input type="text" 
+                               name="description" 
+                               id="description" 
+                               required 
+                               class="mt-1 focus:ring-primary focus:border-primary block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label for="transaction_date" class="block text-sm font-medium text-gray-700">Transaction Date</label>
+                        <input type="date" 
+                               name="transaction_date" 
+                               id="transaction_date" 
+                               required 
+                               class="mt-1 focus:ring-primary focus:border-primary block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-gray-700">Status</label>
+                        <select name="status" 
+                                id="status" 
+                                required 
+                                class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
+                            <option value="">Select status</option>
+                            <option value="pending">Pending</option>
+                            <option value="cleared">Cleared</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Add Transaction
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transactions Table -->
+    <div id="transactions-table" hx-get="/htmx/transactions" hx-trigger="load">
+        {{template "transactions-table.html" .}}
+    </div>
+</div>
+
+<script>
+// Set today's date as default
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('transaction_date').value = today;
+});
+
+// Reset form after successful submission
+document.addEventListener('htmx:afterSwap', function(event) {
+    if (event.target.id === 'transactions-table') {
+        // Reset the form
+        const form = document.querySelector('form');
+        if (form) {
+            form.reset();
+            // Reset date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('transaction_date').value = today;
+        }
+        
+        // Show success message
+        showNotification('Transaction added successfully!', 'success');
+    }
+});
+
+function editTransaction(transactionId) {
+    // TODO: Implement edit functionality
+    console.log('Edit transaction:', transactionId);
+    showNotification('Edit functionality coming soon!', 'info');
+}
+</script>
+{{end}} 

@@ -17,7 +17,6 @@ require (
 	github.com/stretchr/testify v1.10.0
 )
 
-
 //replace github.com/guilhermebr/gox/postgres v0.0.0 => ../gox/postgres
 //replace github.com/guilhermebr/gox/logger v0.0.0 => ../gox/logger
 
@@ -37,6 +36,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
