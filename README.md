@@ -139,7 +139,8 @@ export DATABASE_HOST=localhost DATABASE_USER=postgres DATABASE_PASSWORD=postgres
 ./bin/service
 
 # Terminal 2: Start Web frontend (port 8080)  
-export DATABASE_HOST=localhost DATABASE_USER=postgres DATABASE_PASSWORD=postgres DATABASE_NAME=finance
+# The web frontend only needs to know where the API service is running
+export API_BASE_URL=http://localhost:8000
 ./bin/web
 ```
 

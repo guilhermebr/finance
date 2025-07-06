@@ -18,6 +18,25 @@ endef
 .PHONY: compile
 compile:
 	$(call goBuild,service,"service")
+	$(call goBuild,web,"web")
+
+.PHONY: run
+run:
+	make stop
+	make run-service &
+	make run-web &
+
+.PHONY: run-service
+run-service:
+	./build/service 
+
+.PHONY: run-web
+run-web:
+	./build/web
+
+.PHONY: stop
+stop:
+	killall service web || true	
 
 # ###########
 # Setup
