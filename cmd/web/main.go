@@ -1,11 +1,8 @@
 package main
 
 import (
-	"context"
 	"errors"
-	"finance/domain/finance"
 	"finance/internal/config"
-	"finance/internal/repository/pg"
 	"finance/internal/web"
 	"fmt"
 	"log/slog"
@@ -14,7 +11,6 @@ import (
 	"time"
 
 	"github.com/guilhermebr/gox/logger"
-	"github.com/guilhermebr/gox/postgres"
 )
 
 // Injected on build time by ldflags.
@@ -24,8 +20,6 @@ var (
 )
 
 func main() {
-	ctx := context.Background()
-
 	var cfg config.Config
 	if err := cfg.Load(""); err != nil {
 		panic(fmt.Errorf("loading config: %w", err))
@@ -45,48 +39,22 @@ func main() {
 		slog.Int("runtime_num_cpu", runtime.NumCPU()),
 	)
 
-	// Database connection
-	conn, err := postgres.New(ctx, "")
-	if err != nil {
-		log.Error("failed to setup postgres",
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-	defer conn.Close()
+	// API base URL configuration
+	apiBaseURL := cfg.Web.ApiBaseURL
 
-	err = conn.Ping(ctx)
-	if err != nil {
-		log.Error("failed to reach postgres",
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-
-	// Finance repositories
-	accountRepo := pg.NewAccountRepository(conn)
-	categoryRepo := pg.NewCategoryRepository(conn)
-	transactionRepo := pg.NewTransactionRepository(conn)
-	balanceRepo := pg.NewBalanceRepository(conn)
-
-	// Finance use cases
-	accountUseCase := finance.NewAccountUseCase(accountRepo, balanceRepo)
-	categoryUseCase := finance.NewCategoryUseCase(categoryRepo)
-	transactionUseCase := finance.NewTransactionUseCase(transactionRepo, accountRepo, categoryRepo, balanceRepo)
-	balanceUseCase := finance.NewBalanceUseCase(balanceRepo, accountRepo)
-
-	// Web handlers
-	webHandlers := web.NewHandlers(accountUseCase, categoryUseCase, transactionUseCase, balanceUseCase)
+	// Web handlers - now only needs API base URL
+	webHandlers := web.NewHandlers(apiBaseURL)
 
 	// Server
 	server := http.Server{
 		Handler:           webHandlers.Router(),
-		Addr:              ":8080", // Different port from API
+		Addr:              cfg.Web.Address,
 		ReadHeaderTimeout: 60 * time.Second,
 	}
 
 	log.Info("web server started",
 		slog.String("address", server.Addr),
+		slog.String("api_base_url", apiBaseURL),
 	)
 
 	if serverErr := server.ListenAndServe(); serverErr != nil && !errors.Is(serverErr, http.ErrServerClosed) {

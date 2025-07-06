@@ -97,7 +97,7 @@ func main() {
 	// ------------------------------------------
 	server := http.Server{
 		Handler:           router,
-		Addr:              cfg.ApiAddress,
+		Addr:              cfg.Service.Address,
 		ReadHeaderTimeout: 60 * time.Second,
 	}
 	log.Info("server started",

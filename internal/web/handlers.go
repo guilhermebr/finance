@@ -1,11 +1,12 @@
 package web
 
 import (
-	"context"
+	"bytes"
+	"encoding/json"
 	"finance/domain/entities"
-	"finance/domain/finance"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,29 +17,22 @@ import (
 
 // Handlers contains all web handlers for the personal finance application
 type Handlers struct {
-	accountUseCase     *finance.AccountUseCase
-	categoryUseCase    *finance.CategoryUseCase
-	transactionUseCase *finance.TransactionUseCase
-	balanceUseCase     *finance.BalanceUseCase
-	templates          *template.Template
+	apiBaseURL string
+	httpClient *http.Client
+	templates  *template.Template
 }
 
 // NewHandlers creates a new instance of web handlers
-func NewHandlers(
-	accountUseCase *finance.AccountUseCase,
-	categoryUseCase *finance.CategoryUseCase,
-	transactionUseCase *finance.TransactionUseCase,
-	balanceUseCase *finance.BalanceUseCase,
-) *Handlers {
+func NewHandlers(apiBaseURL string) *Handlers {
 	// Load templates
 	templates := template.Must(template.ParseGlob("internal/web/templates/*.html"))
 
 	return &Handlers{
-		accountUseCase:     accountUseCase,
-		categoryUseCase:    categoryUseCase,
-		transactionUseCase: transactionUseCase,
-		balanceUseCase:     balanceUseCase,
-		templates:          templates,
+		apiBaseURL: apiBaseURL,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		templates: templates,
 	}
 }
 
@@ -75,32 +69,129 @@ func (h *Handlers) Router() http.Handler {
 	return r
 }
 
+// Helper method to make GET requests to the API
+func (h *Handlers) apiGet(endpoint string, result interface{}) error {
+	url := h.apiBaseURL + endpoint
+	resp, err := h.httpClient.Get(url)
+	if err != nil {
+		return fmt.Errorf("failed to call API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return json.NewDecoder(resp.Body).Decode(result)
+}
+
+// Helper method to make POST requests to the API
+func (h *Handlers) apiPost(endpoint string, payload interface{}, result interface{}) error {
+	url := h.apiBaseURL + endpoint
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	resp, err := h.httpClient.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to call API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	if result != nil {
+		return json.NewDecoder(resp.Body).Decode(result)
+	}
+	return nil
+}
+
+// Helper method to make PUT requests to the API
+func (h *Handlers) apiPut(endpoint string, payload interface{}, result interface{}) error {
+	url := h.apiBaseURL + endpoint
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to call API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	if result != nil {
+		return json.NewDecoder(resp.Body).Decode(result)
+	}
+	return nil
+}
+
+// Helper method to make DELETE requests to the API
+func (h *Handlers) apiDelete(endpoint string) error {
+	url := h.apiBaseURL + endpoint
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to call API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 // Dashboard renders the main dashboard page
 func (h *Handlers) Dashboard(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	var accounts []entities.Account
+	var categories []entities.Category
+	var transactions []entities.Transaction
+	var balances []entities.Balance
 
-	// Get summary data
-	accounts, err := h.accountUseCase.GetAllAccounts(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// Get data from API
+	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	categories, err := h.categoryUseCase.GetAllCategories(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	transactions, err := h.transactionUseCase.GetAllTransactions(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/transactions", &transactions); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get transactions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	balances, err := h.balanceUseCase.GetAllBalances(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/balances", &balances); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get balances: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -126,11 +217,10 @@ func (h *Handlers) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 // AccountsPage renders the accounts management page
 func (h *Handlers) AccountsPage(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	var accounts []entities.Account
 
-	accounts, err := h.accountUseCase.GetAllAccounts(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -150,24 +240,22 @@ func (h *Handlers) AccountsPage(w http.ResponseWriter, r *http.Request) {
 
 // CreateAccount handles account creation
 func (h *Handlers) CreateAccount(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-
 	account := entities.Account{
 		Name:        r.FormValue("name"),
 		Type:        entities.AccountType(r.FormValue("type")),
 		Description: r.FormValue("description"),
 	}
 
-	createdAccount, err := h.accountUseCase.CreateAccount(ctx, account)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var createdAccount entities.Account
+	if err := h.apiPost("/api/v1/accounts", account, &createdAccount); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create account: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated accounts table for HTMX
-	accounts, err := h.accountUseCase.GetAllAccounts(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var accounts []entities.Account
+	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -187,9 +275,7 @@ func (h *Handlers) CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 // UpdateAccount handles account updates
 func (h *Handlers) UpdateAccount(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
 	vars := mux.Vars(r)
-
 	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Invalid account ID", http.StatusBadRequest)
@@ -203,16 +289,16 @@ func (h *Handlers) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		Description: r.FormValue("description"),
 	}
 
-	_, err := h.accountUseCase.UpdateAccount(ctx, account)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var updatedAccount entities.Account
+	if err := h.apiPut("/api/v1/accounts/"+id, account, &updatedAccount); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to update account: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated accounts table for HTMX
-	accounts, err := h.accountUseCase.GetAllAccounts(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var accounts []entities.Account
+	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -226,29 +312,28 @@ func (h *Handlers) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf("account-updated-%s", updatedAccount.ID))
 }
 
 // DeleteAccount handles account deletion
 func (h *Handlers) DeleteAccount(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
 	vars := mux.Vars(r)
-
 	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Invalid account ID", http.StatusBadRequest)
 		return
 	}
 
-	err := h.accountUseCase.DeleteAccount(ctx, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := h.apiDelete("/api/v1/accounts/" + id); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to delete account: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated accounts table for HTMX
-	accounts, err := h.accountUseCase.GetAllAccounts(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var accounts []entities.Account
+	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -262,15 +347,16 @@ func (h *Handlers) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf("account-deleted-%s", id))
 }
 
 // CategoriesPage renders the categories management page
 func (h *Handlers) CategoriesPage(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	var categories []entities.Category
 
-	categories, err := h.categoryUseCase.GetAllCategories(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -290,8 +376,6 @@ func (h *Handlers) CategoriesPage(w http.ResponseWriter, r *http.Request) {
 
 // CreateCategory handles category creation
 func (h *Handlers) CreateCategory(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-
 	category := entities.Category{
 		Name:        r.FormValue("name"),
 		Type:        entities.CategoryType(r.FormValue("type")),
@@ -299,16 +383,16 @@ func (h *Handlers) CreateCategory(w http.ResponseWriter, r *http.Request) {
 		Description: r.FormValue("description"),
 	}
 
-	_, err := h.categoryUseCase.CreateCategory(ctx, category)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var createdCategory entities.Category
+	if err := h.apiPost("/api/v1/categories", category, &createdCategory); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create category: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated categories table for HTMX
-	categories, err := h.categoryUseCase.GetAllCategories(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var categories []entities.Category
+	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -322,13 +406,13 @@ func (h *Handlers) CreateCategory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf("category-created-%s", createdCategory.ID))
 }
 
 // UpdateCategory handles category updates
 func (h *Handlers) UpdateCategory(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
 	vars := mux.Vars(r)
-
 	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Invalid category ID", http.StatusBadRequest)
@@ -343,16 +427,16 @@ func (h *Handlers) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 		Description: r.FormValue("description"),
 	}
 
-	_, err := h.categoryUseCase.UpdateCategory(ctx, category)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var updatedCategory entities.Category
+	if err := h.apiPut("/api/v1/categories/"+id, category, &updatedCategory); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to update category: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated categories table for HTMX
-	categories, err := h.categoryUseCase.GetAllCategories(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var categories []entities.Category
+	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -366,29 +450,28 @@ func (h *Handlers) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf("category-updated-%s", updatedCategory.ID))
 }
 
 // DeleteCategory handles category deletion
 func (h *Handlers) DeleteCategory(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
 	vars := mux.Vars(r)
-
 	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Invalid category ID", http.StatusBadRequest)
 		return
 	}
 
-	err := h.categoryUseCase.DeleteCategory(ctx, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := h.apiDelete("/api/v1/categories/" + id); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to delete category: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated categories table for HTMX
-	categories, err := h.categoryUseCase.GetAllCategories(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var categories []entities.Category
+	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -402,27 +485,28 @@ func (h *Handlers) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf("category-deleted-%s", id))
 }
 
 // TransactionsPage renders the transactions management page
 func (h *Handlers) TransactionsPage(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	var transactions []entities.Transaction
+	var accounts []entities.Account
+	var categories []entities.Category
 
-	transactions, err := h.transactionUseCase.GetAllTransactions(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/transactions", &transactions); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get transactions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	accounts, err := h.accountUseCase.GetAllAccounts(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	categories, err := h.categoryUseCase.GetAllCategories(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -446,51 +530,37 @@ func (h *Handlers) TransactionsPage(w http.ResponseWriter, r *http.Request) {
 
 // CreateTransaction handles transaction creation
 func (h *Handlers) CreateTransaction(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-
-	accountID := r.FormValue("account_id")
-	if accountID == "" {
-		http.Error(w, "Invalid account ID", http.StatusBadRequest)
-		return
-	}
-
-	categoryID := r.FormValue("category_id")
-	if categoryID == "" {
-		http.Error(w, "Invalid category ID", http.StatusBadRequest)
-		return
-	}
-
 	amount, err := strconv.ParseFloat(r.FormValue("amount"), 64)
 	if err != nil {
 		http.Error(w, "Invalid amount", http.StatusBadRequest)
 		return
 	}
 
-	transactionDate, err := time.Parse("2006-01-02", r.FormValue("transaction_date"))
+	date, err := time.Parse("2006-01-02", r.FormValue("date"))
 	if err != nil {
-		http.Error(w, "Invalid transaction date", http.StatusBadRequest)
+		http.Error(w, "Invalid date", http.StatusBadRequest)
 		return
 	}
 
 	transaction := entities.Transaction{
-		AccountID:   accountID,
-		CategoryID:  categoryID,
+		AccountID:   r.FormValue("account_id"),
+		CategoryID:  r.FormValue("category_id"),
 		Amount:      amount,
 		Description: r.FormValue("description"),
-		Date:        transactionDate,
+		Date:        date,
 		Status:      entities.TransactionStatus(r.FormValue("status")),
 	}
 
-	_, err = h.transactionUseCase.CreateTransaction(ctx, transaction)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var createdTransaction entities.Transaction
+	if err := h.apiPost("/api/v1/transactions", transaction, &createdTransaction); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create transaction: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated transactions table for HTMX
-	transactions, err := h.transactionUseCase.GetAllTransactions(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var transactions []entities.Transaction
+	if err := h.apiGet("/api/v1/transactions", &transactions); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get transactions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -504,28 +574,16 @@ func (h *Handlers) CreateTransaction(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf("transaction-created-%s", createdTransaction.ID))
 }
 
 // UpdateTransaction handles transaction updates
 func (h *Handlers) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
 	vars := mux.Vars(r)
-
 	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Invalid transaction ID", http.StatusBadRequest)
-		return
-	}
-
-	accountID := r.FormValue("account_id")
-	if accountID == "" {
-		http.Error(w, "Invalid account ID", http.StatusBadRequest)
-		return
-	}
-
-	categoryID := r.FormValue("category_id")
-	if categoryID == "" {
-		http.Error(w, "Invalid category ID", http.StatusBadRequest)
 		return
 	}
 
@@ -535,32 +593,32 @@ func (h *Handlers) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	transactionDate, err := time.Parse("2006-01-02", r.FormValue("transaction_date"))
+	date, err := time.Parse("2006-01-02", r.FormValue("date"))
 	if err != nil {
-		http.Error(w, "Invalid transaction date", http.StatusBadRequest)
+		http.Error(w, "Invalid date", http.StatusBadRequest)
 		return
 	}
 
 	transaction := entities.Transaction{
 		ID:          id,
-		AccountID:   accountID,
-		CategoryID:  categoryID,
+		AccountID:   r.FormValue("account_id"),
+		CategoryID:  r.FormValue("category_id"),
 		Amount:      amount,
 		Description: r.FormValue("description"),
-		Date:        transactionDate,
+		Date:        date,
 		Status:      entities.TransactionStatus(r.FormValue("status")),
 	}
 
-	_, err = h.transactionUseCase.UpdateTransaction(ctx, transaction)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var updatedTransaction entities.Transaction
+	if err := h.apiPut("/api/v1/transactions/"+id, transaction, &updatedTransaction); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to update transaction: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated transactions table for HTMX
-	transactions, err := h.transactionUseCase.GetAllTransactions(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var transactions []entities.Transaction
+	if err := h.apiGet("/api/v1/transactions", &transactions); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get transactions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -574,29 +632,28 @@ func (h *Handlers) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf("transaction-updated-%s", updatedTransaction.ID))
 }
 
 // DeleteTransaction handles transaction deletion
 func (h *Handlers) DeleteTransaction(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
 	vars := mux.Vars(r)
-
 	id := vars["id"]
 	if id == "" {
 		http.Error(w, "Invalid transaction ID", http.StatusBadRequest)
 		return
 	}
 
-	err := h.transactionUseCase.DeleteTransaction(ctx, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := h.apiDelete("/api/v1/transactions/" + id); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to delete transaction: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated transactions table for HTMX
-	transactions, err := h.transactionUseCase.GetAllTransactions(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var transactions []entities.Transaction
+	if err := h.apiGet("/api/v1/transactions", &transactions); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get transactions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -610,17 +667,16 @@ func (h *Handlers) DeleteTransaction(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf("transaction-deleted-%s", id))
 }
 
-// HTMX partial handlers
-
-// AccountsTable returns just the accounts table for HTMX updates
+// AccountsTable renders the accounts table partial for HTMX
 func (h *Handlers) AccountsTable(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	var accounts []entities.Account
 
-	accounts, err := h.accountUseCase.GetAllAccounts(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -636,13 +692,12 @@ func (h *Handlers) AccountsTable(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// CategoriesTable returns just the categories table for HTMX updates
+// CategoriesTable renders the categories table partial for HTMX
 func (h *Handlers) CategoriesTable(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	var categories []entities.Category
 
-	categories, err := h.categoryUseCase.GetAllCategories(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -658,13 +713,12 @@ func (h *Handlers) CategoriesTable(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TransactionsTable returns just the transactions table for HTMX updates
+// TransactionsTable renders the transactions table partial for HTMX
 func (h *Handlers) TransactionsTable(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	var transactions []entities.Transaction
 
-	transactions, err := h.transactionUseCase.GetAllTransactions(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/transactions", &transactions); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get transactions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -680,13 +734,12 @@ func (h *Handlers) TransactionsTable(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// BalanceSummary returns balance summary for HTMX updates
+// BalanceSummary renders the balance summary partial for HTMX
 func (h *Handlers) BalanceSummary(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	var balances []entities.Balance
 
-	balances, err := h.balanceUseCase.GetAllBalances(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.apiGet("/api/v1/balances", &balances); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get balances: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -702,19 +755,15 @@ func (h *Handlers) BalanceSummary(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Helper functions
-
-// formatCurrency formats a float64 as currency
+// Template helper functions
 func formatCurrency(amount float64) string {
 	return fmt.Sprintf("$%.2f", amount)
 }
 
-// formatDate formats a time.Time as a date string
 func formatDate(t time.Time) string {
 	return t.Format("2006-01-02")
 }
 
-// capitalizeFirst capitalizes the first letter of a string
 func capitalizeFirst(s string) string {
 	if len(s) == 0 {
 		return s
