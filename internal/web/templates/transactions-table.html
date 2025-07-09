@@ -19,7 +19,7 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                                    {{if gt .Amount 0}}
+                                    {{if not (eq (slice .Amount 0 1) "-")}}
                                     <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                     </svg>
@@ -36,18 +36,32 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            Account {{.AccountID}}
+                            {{$transaction := .}}
+                            {{$accountName := "Unknown Account"}}
+                            {{range $.Accounts}}
+                                {{if eq .ID $transaction.AccountID}}
+                                    {{$accountName = .Name}}
+                                {{end}}
+                            {{end}}
+                            {{$accountName}}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            Category {{.CategoryID}}
+                            {{$transaction := .}}
+                            {{$categoryName := "Unknown Category"}}
+                            {{range $.Categories}}
+                                {{if eq .ID $transaction.CategoryID}}
+                                    {{$categoryName = .Name}}
+                                {{end}}
+                            {{end}}
+                            {{$categoryName}}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div class="text-sm font-medium {{if gt .Amount 0}}text-green-600{{else}}text-red-600{{end}}">
-                                {{if gt .Amount 0}}+{{end}}${{printf "%.2f" .Amount}}
+                            <div class="text-sm font-medium {{if not (eq (slice .Amount 0 1) "-")}}text-green-600{{else}}text-red-600{{end}}">
+                                {{if not (eq (slice .Amount 0 1) "-")}}+{{end}}{{.Amount}}
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{.Date.Format "2006-01-02"}}
+                            {{.Date}}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{if eq .Status "cleared"}}bg-green-100 text-green-800{{else if eq .Status "pending"}}bg-yellow-100 text-yellow-800{{else}}bg-red-100 text-red-800{{end}}">
@@ -55,7 +69,7 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button class="text-primary hover:text-blue-700 mr-3">
+                            <button onclick="editTransaction('{{.ID}}')" class="text-primary hover:text-blue-700 mr-3">
                                 Edit
                             </button>
                             <button hx-delete="/transactions/{{.ID}}" 

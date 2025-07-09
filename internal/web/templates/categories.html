@@ -1,95 +1,137 @@
-{{template "base.html" .}}
-
-{{define "content"}}
-<div class="px-4 sm:px-0">
-    <div class="mb-8">
-        <h2 class="text-3xl font-bold text-gray-900">Categories</h2>
-        <p class="mt-2 text-sm text-gray-600">Organize your transactions with categories</p>
-    </div>
-
-    <!-- Add Category Form -->
-    <div class="bg-white shadow sm:rounded-lg mb-8">
-        <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Add New Category</h3>
-            <form hx-post="/categories/create" 
-                  hx-target="#categories-table" 
-                  hx-swap="outerHTML"
-                  class="space-y-4">
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                        <label for="name" class="block text-sm font-medium text-gray-700">Category Name</label>
-                        <input type="text" 
-                               name="name" 
-                               id="name" 
-                               required 
-                               class="mt-1 focus:ring-primary focus:border-primary block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
-                    </div>
-                    <div>
-                        <label for="type" class="block text-sm font-medium text-gray-700">Category Type</label>
-                        <select name="type" 
-                                id="type" 
-                                required 
-                                class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
-                            <option value="">Select category type</option>
-                            <option value="income">Income</option>
-                            <option value="expense">Expense</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="color" class="block text-sm font-medium text-gray-700">Color</label>
-                        <input type="color" 
-                               name="color" 
-                               id="color" 
-                               value="#3B82F6"
-                               class="mt-1 block w-full h-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
-                    </div>
-                    <div>
-                        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-                        <input type="text" 
-                               name="description" 
-                               id="description" 
-                               class="mt-1 focus:ring-primary focus:border-primary block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
-                    </div>
-                </div>
-                <div class="flex justify-end">
-                    <button type="submit" 
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-                        </svg>
-                        Add Category
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Categories Table -->
-    <div id="categories-table" hx-get="/htmx/categories" hx-trigger="load">
-        {{template "categories-table.html" .}}
-    </div>
-</div>
-
-<script>
-// Reset form after successful submission
-document.addEventListener('htmx:afterSwap', function(event) {
-    if (event.target.id === 'categories-table') {
-        // Reset the form
-        const form = document.querySelector('form');
-        if (form) {
-            form.reset();
-            document.getElementById('color').value = '#3B82F6';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} - Personal Finance</title>
+    <script src="https://unpkg.com/htmx.org@1.9.8"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#F59E0B',
+                        danger: '#EF4444',
+                    }
+                }
+            }
         }
-        
-        // Show success message
-        showNotification('Category added successfully!', 'success');
-    }
-});
+    </script>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-2xl font-bold text-gray-900">💰 Personal Finance</h1>
+                    </div>
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="/" class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
+                        <a href="/accounts" class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">Accounts</a>
+                        <a href="/categories" class="text-primary bg-blue-50 px-3 py-2 rounded-md text-sm font-medium">Categories</a>
+                        <a href="/transactions" class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">Transactions</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-function editCategory(categoryId) {
-    // TODO: Implement edit functionality
-    console.log('Edit category:', categoryId);
-    showNotification('Edit functionality coming soon!', 'info');
-}
-</script>
-{{end}} 
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 sm:px-0">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-900">Categories</h2>
+                <p class="mt-2 text-sm text-gray-600">Organize your transactions with categories</p>
+            </div>
+
+            <!-- Add Category Form -->
+            <div class="bg-white shadow sm:rounded-lg mb-8">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Add New Category</h3>
+                    <form hx-post="/categories/create" 
+                          hx-target="#categories-table" 
+                          hx-swap="outerHTML"
+                          class="space-y-4">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <div>
+                                <label for="name" class="block text-sm font-medium text-gray-700">Category Name</label>
+                                <input type="text" 
+                                       name="name" 
+                                       id="name" 
+                                       required 
+                                       class="mt-1 focus:ring-primary focus:border-primary block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label for="type" class="block text-sm font-medium text-gray-700">Category Type</label>
+                                <select name="type" 
+                                        id="type" 
+                                        required 
+                                        class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
+                                    <option value="">Select category type</option>
+                                    <option value="income">Income</option>
+                                    <option value="expense">Expense</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="color" class="block text-sm font-medium text-gray-700">Color</label>
+                                <input type="color" 
+                                       name="color" 
+                                       id="color" 
+                                       value="#3B82F6"
+                                       class="mt-1 block w-full h-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                                <input type="text" 
+                                       name="description" 
+                                       id="description" 
+                                       class="mt-1 focus:ring-primary focus:border-primary block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                                </svg>
+                                Add Category
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Categories Table -->
+            <div id="categories-table" hx-get="/htmx/categories" hx-trigger="load">
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <p class="text-gray-500">Loading categories...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Form validation and handlers
+        document.addEventListener('htmx:afterSwap', function(event) {
+            if (event.target.id === 'categories-table') {
+                const form = document.querySelector('form[hx-post="/categories/create"]');
+                if (form) {
+                    form.reset();
+                    document.getElementById('color').value = '#3B82F6';
+                }
+            }
+        });
+
+        function editCategory(categoryId) {
+            alert('Edit category: ' + categoryId);
+        }
+    </script>
+</body>
+</html> 
