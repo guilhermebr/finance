@@ -9,11 +9,62 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/guilhermebr/gox/monetary"
 )
+
+// Response DTOs that match the API contracts
+type AccountResponse struct {
+	ID          string               `json:"id"`
+	Name        string               `json:"name"`
+	Type        entities.AccountType `json:"type"`
+	Asset       string               `json:"asset"`
+	Description string               `json:"description"`
+	CreatedAt   string               `json:"created_at"`
+	UpdatedAt   string               `json:"updated_at"`
+}
+
+type CategoryResponse struct {
+	ID          string                `json:"id"`
+	Name        string                `json:"name"`
+	Type        entities.CategoryType `json:"type"`
+	Description string                `json:"description"`
+	Color       string                `json:"color"`
+	CreatedAt   string                `json:"created_at"`
+	UpdatedAt   string                `json:"updated_at"`
+}
+
+type TransactionResponse struct {
+	ID          string                     `json:"id"`
+	AccountID   string                     `json:"account_id"`
+	CategoryID  string                     `json:"category_id"`
+	Amount      string                     `json:"amount"`
+	Description string                     `json:"description"`
+	Date        string                     `json:"date"`
+	Status      entities.TransactionStatus `json:"status"`
+	CreatedAt   string                     `json:"created_at"`
+	UpdatedAt   string                     `json:"updated_at"`
+	Account     *AccountResponse           `json:"account,omitempty"`
+	Category    *CategoryResponse          `json:"category,omitempty"`
+}
+
+type BalanceResponse struct {
+	AccountID        string           `json:"account_id"`
+	CurrentBalance   string           `json:"current_balance"`
+	PendingBalance   string           `json:"pending_balance"`
+	AvailableBalance string           `json:"available_balance"`
+	LastCalculated   string           `json:"last_calculated"`
+	Account          *AccountResponse `json:"account,omitempty"`
+}
+
+type BalanceSummaryResponse struct {
+	TotalAssets      string `json:"total_assets"`
+	TotalLiabilities string `json:"total_liabilities"`
+	NetWorth         string `json:"net_worth"`
+	LastCalculated   string `json:"last_calculated"`
+}
 
 // Handlers contains all web handlers for the personal finance application
 type Handlers struct {
@@ -24,8 +75,29 @@ type Handlers struct {
 
 // NewHandlers creates a new instance of web handlers
 func NewHandlers(apiBaseURL string) *Handlers {
-	// Load templates
-	templates := template.Must(template.ParseGlob("internal/web/templates/*.html"))
+	// Load templates individually to avoid naming conflicts
+	templates := template.New("")
+
+	// Parse each template file individually
+	templateFiles := map[string]string{
+		"dashboard.html":          "internal/web/templates/dashboard.html",
+		"accounts.html":           "internal/web/templates/accounts.html",
+		"categories.html":         "internal/web/templates/categories.html",
+		"transactions.html":       "internal/web/templates/transactions.html",
+		"accounts-table.html":     "internal/web/templates/accounts-table.html",
+		"categories-table.html":   "internal/web/templates/categories-table.html",
+		"transactions-table.html": "internal/web/templates/transactions-table.html",
+		"balance-summary.html":    "internal/web/templates/balance-summary.html",
+	}
+
+	for name, file := range templateFiles {
+		tmpl, err := template.ParseFiles(file)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to parse template %s: %v", file, err))
+		}
+		// Associate each template with its intended name
+		templates, _ = templates.AddParseTree(name, tmpl.Tree)
+	}
 
 	return &Handlers{
 		apiBaseURL: apiBaseURL,
@@ -169,10 +241,10 @@ func (h *Handlers) apiDelete(endpoint string) error {
 
 // Dashboard renders the main dashboard page
 func (h *Handlers) Dashboard(w http.ResponseWriter, r *http.Request) {
-	var accounts []entities.Account
-	var categories []entities.Category
-	var transactions []entities.Transaction
-	var balances []entities.Balance
+	var accounts []AccountResponse
+	var categories []CategoryResponse
+	var transactions []TransactionResponse
+	var balances []BalanceResponse
 
 	// Get data from API
 	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
@@ -191,22 +263,24 @@ func (h *Handlers) Dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.apiGet("/api/v1/balances", &balances); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get balances: %v", err), http.StatusInternalServerError)
-		return
+		// Don't fail if balances can't be loaded, just use empty slice
+		balances = []BalanceResponse{}
 	}
 
 	data := struct {
-		Accounts     []entities.Account
-		Categories   []entities.Category
-		Transactions []entities.Transaction
-		Balances     []entities.Balance
+		Accounts     []AccountResponse
+		Categories   []CategoryResponse
+		Transactions []TransactionResponse
+		Balances     []BalanceResponse
 		Title        string
+		CurrentPage  string
 	}{
 		Accounts:     accounts,
 		Categories:   categories,
 		Transactions: transactions,
 		Balances:     balances,
 		Title:        "Personal Finance Dashboard",
+		CurrentPage:  "dashboard",
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "dashboard.html", data); err != nil {
@@ -217,7 +291,7 @@ func (h *Handlers) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 // AccountsPage renders the accounts management page
 func (h *Handlers) AccountsPage(w http.ResponseWriter, r *http.Request) {
-	var accounts []entities.Account
+	var accounts []AccountResponse
 
 	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
@@ -225,11 +299,13 @@ func (h *Handlers) AccountsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Accounts []entities.Account
-		Title    string
+		Accounts    []AccountResponse
+		Title       string
+		CurrentPage string
 	}{
-		Accounts: accounts,
-		Title:    "Manage Accounts",
+		Accounts:    accounts,
+		Title:       "Manage Accounts",
+		CurrentPage: "accounts",
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "accounts.html", data); err != nil {
@@ -240,29 +316,56 @@ func (h *Handlers) AccountsPage(w http.ResponseWriter, r *http.Request) {
 
 // CreateAccount handles account creation
 func (h *Handlers) CreateAccount(w http.ResponseWriter, r *http.Request) {
-	account := entities.Account{
+	// Parse and validate the asset
+	assetName := r.FormValue("asset")
+	if assetName == "" {
+		assetName = "BRL" // Default to BRL if no asset is provided
+	}
+
+	asset, ok := monetary.FindAssetByName(assetName)
+	if !ok {
+		http.Error(w, "Invalid asset", http.StatusBadRequest)
+		return
+	}
+
+	// Create request payload that matches API expectations
+	requestPayload := struct {
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+		Asset       string `json:"asset"`
+		Description string `json:"description"`
+	}{
 		Name:        r.FormValue("name"),
-		Type:        entities.AccountType(r.FormValue("type")),
+		Type:        r.FormValue("type"),
+		Asset:       asset.Asset,
 		Description: r.FormValue("description"),
 	}
 
-	var createdAccount entities.Account
-	if err := h.apiPost("/api/v1/accounts", account, &createdAccount); err != nil {
+	var createdAccount AccountResponse
+	if err := h.apiPost("/api/v1/accounts", requestPayload, &createdAccount); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create account: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated accounts table for HTMX
-	var accounts []entities.Account
+	var accounts []AccountResponse
 	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	var balances []BalanceResponse
+	if err := h.apiGet("/api/v1/balances", &balances); err != nil {
+		// Don't fail if balances can't be loaded, just use empty slice
+		balances = []BalanceResponse{}
+	}
+
 	data := struct {
-		Accounts []entities.Account
+		Accounts []AccountResponse
+		Balances []BalanceResponse
 	}{
 		Accounts: accounts,
+		Balances: balances,
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "accounts-table.html", data); err != nil {
@@ -282,30 +385,56 @@ func (h *Handlers) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account := entities.Account{
-		ID:          id,
+	// Parse and validate the asset
+	assetName := r.FormValue("asset")
+	if assetName == "" {
+		assetName = "BRL" // Default to BRL if no asset is provided
+	}
+
+	asset, ok := monetary.FindAssetByName(assetName)
+	if !ok {
+		http.Error(w, "Invalid asset", http.StatusBadRequest)
+		return
+	}
+
+	// Create request payload that matches API expectations
+	requestPayload := struct {
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+		Asset       string `json:"asset"`
+		Description string `json:"description"`
+	}{
 		Name:        r.FormValue("name"),
-		Type:        entities.AccountType(r.FormValue("type")),
+		Type:        r.FormValue("type"),
+		Asset:       asset.Asset,
 		Description: r.FormValue("description"),
 	}
 
-	var updatedAccount entities.Account
-	if err := h.apiPut("/api/v1/accounts/"+id, account, &updatedAccount); err != nil {
+	var updatedAccount AccountResponse
+	if err := h.apiPut("/api/v1/accounts/"+id, requestPayload, &updatedAccount); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update account: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated accounts table for HTMX
-	var accounts []entities.Account
+	var accounts []AccountResponse
 	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	var balances []BalanceResponse
+	if err := h.apiGet("/api/v1/balances", &balances); err != nil {
+		// Don't fail if balances can't be loaded, just use empty slice
+		balances = []BalanceResponse{}
+	}
+
 	data := struct {
-		Accounts []entities.Account
+		Accounts []AccountResponse
+		Balances []BalanceResponse
 	}{
 		Accounts: accounts,
+		Balances: balances,
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "accounts-table.html", data); err != nil {
@@ -339,8 +468,10 @@ func (h *Handlers) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	data := struct {
 		Accounts []entities.Account
+		Balances []entities.Balance
 	}{
 		Accounts: accounts,
+		Balances: []entities.Balance{}, // Empty for now due to API issue
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "accounts-table.html", data); err != nil {
@@ -353,7 +484,7 @@ func (h *Handlers) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 // CategoriesPage renders the categories management page
 func (h *Handlers) CategoriesPage(w http.ResponseWriter, r *http.Request) {
-	var categories []entities.Category
+	var categories []CategoryResponse
 
 	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
@@ -361,11 +492,13 @@ func (h *Handlers) CategoriesPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Categories []entities.Category
-		Title      string
+		Categories  []CategoryResponse
+		Title       string
+		CurrentPage string
 	}{
-		Categories: categories,
-		Title:      "Manage Categories",
+		Categories:  categories,
+		Title:       "Manage Categories",
+		CurrentPage: "categories",
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "categories.html", data); err != nil {
@@ -376,28 +509,34 @@ func (h *Handlers) CategoriesPage(w http.ResponseWriter, r *http.Request) {
 
 // CreateCategory handles category creation
 func (h *Handlers) CreateCategory(w http.ResponseWriter, r *http.Request) {
-	category := entities.Category{
+	// Create request payload that matches API expectations
+	requestPayload := struct {
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+		Color       string `json:"color"`
+		Description string `json:"description"`
+	}{
 		Name:        r.FormValue("name"),
-		Type:        entities.CategoryType(r.FormValue("type")),
+		Type:        r.FormValue("type"),
 		Color:       r.FormValue("color"),
 		Description: r.FormValue("description"),
 	}
 
-	var createdCategory entities.Category
-	if err := h.apiPost("/api/v1/categories", category, &createdCategory); err != nil {
+	var createdCategory CategoryResponse
+	if err := h.apiPost("/api/v1/categories", requestPayload, &createdCategory); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create category: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated categories table for HTMX
-	var categories []entities.Category
+	var categories []CategoryResponse
 	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	data := struct {
-		Categories []entities.Category
+		Categories []CategoryResponse
 	}{
 		Categories: categories,
 	}
@@ -419,29 +558,34 @@ func (h *Handlers) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	category := entities.Category{
-		ID:          id,
+	// Create request payload that matches API expectations
+	requestPayload := struct {
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+		Color       string `json:"color"`
+		Description string `json:"description"`
+	}{
 		Name:        r.FormValue("name"),
-		Type:        entities.CategoryType(r.FormValue("type")),
+		Type:        r.FormValue("type"),
 		Color:       r.FormValue("color"),
 		Description: r.FormValue("description"),
 	}
 
-	var updatedCategory entities.Category
-	if err := h.apiPut("/api/v1/categories/"+id, category, &updatedCategory); err != nil {
+	var updatedCategory CategoryResponse
+	if err := h.apiPut("/api/v1/categories/"+id, requestPayload, &updatedCategory); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update category: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated categories table for HTMX
-	var categories []entities.Category
+	var categories []CategoryResponse
 	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	data := struct {
-		Categories []entities.Category
+		Categories []CategoryResponse
 	}{
 		Categories: categories,
 	}
@@ -469,14 +613,14 @@ func (h *Handlers) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return updated categories table for HTMX
-	var categories []entities.Category
+	var categories []CategoryResponse
 	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	data := struct {
-		Categories []entities.Category
+		Categories []CategoryResponse
 	}{
 		Categories: categories,
 	}
@@ -491,9 +635,9 @@ func (h *Handlers) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 
 // TransactionsPage renders the transactions management page
 func (h *Handlers) TransactionsPage(w http.ResponseWriter, r *http.Request) {
-	var transactions []entities.Transaction
-	var accounts []entities.Account
-	var categories []entities.Category
+	var transactions []TransactionResponse
+	var accounts []AccountResponse
+	var categories []CategoryResponse
 
 	if err := h.apiGet("/api/v1/transactions", &transactions); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get transactions: %v", err), http.StatusInternalServerError)
@@ -511,15 +655,17 @@ func (h *Handlers) TransactionsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Transactions []entities.Transaction
-		Accounts     []entities.Account
-		Categories   []entities.Category
+		Transactions []TransactionResponse
+		Accounts     []AccountResponse
+		Categories   []CategoryResponse
 		Title        string
+		CurrentPage  string
 	}{
 		Transactions: transactions,
 		Accounts:     accounts,
 		Categories:   categories,
 		Title:        "Manage Transactions",
+		CurrentPage:  "transactions",
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "transactions.html", data); err != nil {
@@ -530,44 +676,71 @@ func (h *Handlers) TransactionsPage(w http.ResponseWriter, r *http.Request) {
 
 // CreateTransaction handles transaction creation
 func (h *Handlers) CreateTransaction(w http.ResponseWriter, r *http.Request) {
-	amount, err := strconv.ParseFloat(r.FormValue("amount"), 64)
-	if err != nil {
+	amountStr := r.FormValue("amount")
+	// Validate amount format by trying to parse it as float
+	if _, err := strconv.ParseFloat(amountStr, 64); err != nil {
 		http.Error(w, "Invalid amount", http.StatusBadRequest)
 		return
 	}
 
-	date, err := time.Parse("2006-01-02", r.FormValue("date"))
-	if err != nil {
+	// Validate date format but send as string to match API expectations
+	dateStr := r.FormValue("transaction_date")
+	if _, err := time.Parse("2006-01-02", dateStr); err != nil {
 		http.Error(w, "Invalid date", http.StatusBadRequest)
 		return
 	}
 
-	transaction := entities.Transaction{
+	// Create request payload that matches API expectations
+	requestPayload := struct {
+		AccountID   string                     `json:"account_id"`
+		CategoryID  string                     `json:"category_id"`
+		Amount      string                     `json:"amount"`
+		Description string                     `json:"description"`
+		Date        string                     `json:"date"`
+		Status      entities.TransactionStatus `json:"status"`
+	}{
 		AccountID:   r.FormValue("account_id"),
 		CategoryID:  r.FormValue("category_id"),
-		Amount:      amount,
+		Amount:      amountStr,
 		Description: r.FormValue("description"),
-		Date:        date,
+		Date:        dateStr,
 		Status:      entities.TransactionStatus(r.FormValue("status")),
 	}
 
-	var createdTransaction entities.Transaction
-	if err := h.apiPost("/api/v1/transactions", transaction, &createdTransaction); err != nil {
+	var createdTransaction TransactionResponse
+	if err := h.apiPost("/api/v1/transactions", requestPayload, &createdTransaction); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create transaction: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated transactions table for HTMX
-	var transactions []entities.Transaction
+	var transactions []TransactionResponse
+	var accounts []AccountResponse
+	var categories []CategoryResponse
+
 	if err := h.apiGet("/api/v1/transactions", &transactions); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get transactions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	data := struct {
-		Transactions []entities.Transaction
+		Transactions []TransactionResponse
+		Accounts     []AccountResponse
+		Categories   []CategoryResponse
 	}{
 		Transactions: transactions,
+		Accounts:     accounts,
+		Categories:   categories,
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "transactions-table.html", data); err != nil {
@@ -587,45 +760,71 @@ func (h *Handlers) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amount, err := strconv.ParseFloat(r.FormValue("amount"), 64)
-	if err != nil {
+	amountStr := r.FormValue("amount")
+	// Validate amount format by trying to parse it as float
+	if _, err := strconv.ParseFloat(amountStr, 64); err != nil {
 		http.Error(w, "Invalid amount", http.StatusBadRequest)
 		return
 	}
 
-	date, err := time.Parse("2006-01-02", r.FormValue("date"))
-	if err != nil {
+	// Validate date format but send as string to match API expectations
+	dateStr := r.FormValue("transaction_date")
+	if _, err := time.Parse("2006-01-02", dateStr); err != nil {
 		http.Error(w, "Invalid date", http.StatusBadRequest)
 		return
 	}
 
-	transaction := entities.Transaction{
-		ID:          id,
+	// Create request payload that matches API expectations
+	requestPayload := struct {
+		AccountID   string                     `json:"account_id"`
+		CategoryID  string                     `json:"category_id"`
+		Amount      string                     `json:"amount"`
+		Description string                     `json:"description"`
+		Date        string                     `json:"date"`
+		Status      entities.TransactionStatus `json:"status"`
+	}{
 		AccountID:   r.FormValue("account_id"),
 		CategoryID:  r.FormValue("category_id"),
-		Amount:      amount,
+		Amount:      amountStr,
 		Description: r.FormValue("description"),
-		Date:        date,
+		Date:        dateStr,
 		Status:      entities.TransactionStatus(r.FormValue("status")),
 	}
 
-	var updatedTransaction entities.Transaction
-	if err := h.apiPut("/api/v1/transactions/"+id, transaction, &updatedTransaction); err != nil {
+	var updatedTransaction TransactionResponse
+	if err := h.apiPut("/api/v1/transactions/"+id, requestPayload, &updatedTransaction); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update transaction: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Return updated transactions table for HTMX
-	var transactions []entities.Transaction
+	var transactions []TransactionResponse
+	var accounts []AccountResponse
+	var categories []CategoryResponse
+
 	if err := h.apiGet("/api/v1/transactions", &transactions); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get transactions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	data := struct {
-		Transactions []entities.Transaction
+		Transactions []TransactionResponse
+		Accounts     []AccountResponse
+		Categories   []CategoryResponse
 	}{
 		Transactions: transactions,
+		Accounts:     accounts,
+		Categories:   categories,
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "transactions-table.html", data); err != nil {
@@ -651,16 +850,33 @@ func (h *Handlers) DeleteTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return updated transactions table for HTMX
-	var transactions []entities.Transaction
+	var transactions []TransactionResponse
+	var accounts []AccountResponse
+	var categories []CategoryResponse
+
 	if err := h.apiGet("/api/v1/transactions", &transactions); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get transactions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	data := struct {
-		Transactions []entities.Transaction
+		Transactions []TransactionResponse
+		Accounts     []AccountResponse
+		Categories   []CategoryResponse
 	}{
 		Transactions: transactions,
+		Accounts:     accounts,
+		Categories:   categories,
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "transactions-table.html", data); err != nil {
@@ -673,17 +889,25 @@ func (h *Handlers) DeleteTransaction(w http.ResponseWriter, r *http.Request) {
 
 // AccountsTable renders the accounts table partial for HTMX
 func (h *Handlers) AccountsTable(w http.ResponseWriter, r *http.Request) {
-	var accounts []entities.Account
+	var accounts []AccountResponse
+	var balances []BalanceResponse
 
 	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	if err := h.apiGet("/api/v1/balances", &balances); err != nil {
+		// Don't fail if balances can't be loaded, just use empty slice
+		balances = []BalanceResponse{}
+	}
+
 	data := struct {
-		Accounts []entities.Account
+		Accounts []AccountResponse
+		Balances []BalanceResponse
 	}{
 		Accounts: accounts,
+		Balances: balances,
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "accounts-table.html", data); err != nil {
@@ -694,7 +918,7 @@ func (h *Handlers) AccountsTable(w http.ResponseWriter, r *http.Request) {
 
 // CategoriesTable renders the categories table partial for HTMX
 func (h *Handlers) CategoriesTable(w http.ResponseWriter, r *http.Request) {
-	var categories []entities.Category
+	var categories []CategoryResponse
 
 	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
@@ -702,7 +926,7 @@ func (h *Handlers) CategoriesTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Categories []entities.Category
+		Categories []CategoryResponse
 	}{
 		Categories: categories,
 	}
@@ -715,17 +939,33 @@ func (h *Handlers) CategoriesTable(w http.ResponseWriter, r *http.Request) {
 
 // TransactionsTable renders the transactions table partial for HTMX
 func (h *Handlers) TransactionsTable(w http.ResponseWriter, r *http.Request) {
-	var transactions []entities.Transaction
+	var transactions []TransactionResponse
+	var accounts []AccountResponse
+	var categories []CategoryResponse
 
 	if err := h.apiGet("/api/v1/transactions", &transactions); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get transactions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	if err := h.apiGet("/api/v1/accounts", &accounts); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get accounts: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.apiGet("/api/v1/categories", &categories); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get categories: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	data := struct {
-		Transactions []entities.Transaction
+		Transactions []TransactionResponse
+		Accounts     []AccountResponse
+		Categories   []CategoryResponse
 	}{
 		Transactions: transactions,
+		Accounts:     accounts,
+		Categories:   categories,
 	}
 
 	if err := h.templates.ExecuteTemplate(w, "transactions-table.html", data); err != nil {
@@ -736,15 +976,15 @@ func (h *Handlers) TransactionsTable(w http.ResponseWriter, r *http.Request) {
 
 // BalanceSummary renders the balance summary partial for HTMX
 func (h *Handlers) BalanceSummary(w http.ResponseWriter, r *http.Request) {
-	var balances []entities.Balance
+	var balances []BalanceResponse
 
 	if err := h.apiGet("/api/v1/balances", &balances); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get balances: %v", err), http.StatusInternalServerError)
-		return
+		// Don't fail if balances can't be loaded, just use empty slice
+		balances = []BalanceResponse{}
 	}
 
 	data := struct {
-		Balances []entities.Balance
+		Balances []BalanceResponse
 	}{
 		Balances: balances,
 	}
@@ -753,20 +993,4 @@ func (h *Handlers) BalanceSummary(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-}
-
-// Template helper functions
-func formatCurrency(amount float64) string {
-	return fmt.Sprintf("$%.2f", amount)
-}
-
-func formatDate(t time.Time) string {
-	return t.Format("2006-01-02")
-}
-
-func capitalizeFirst(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-	return strings.ToUpper(s[:1]) + s[1:]
 }

@@ -38,7 +38,7 @@
                             {{.Description}}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button class="text-primary hover:text-blue-700 mr-3">
+                            <button onclick="editCategory('{{.ID}}')" class="text-primary hover:text-blue-700 mr-3">
                                 Edit
                             </button>
                             <button hx-delete="/categories/{{.ID}}" 

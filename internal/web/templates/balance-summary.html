@@ -11,7 +11,7 @@
                 <div class="ml-5 w-0 flex-1">
                     <dl>
                         <dt class="text-sm font-medium text-gray-500 truncate">{{if .Account}}{{.Account.Name}}{{else}}Account {{.AccountID}}{{end}}</dt>
-                        <dd class="text-lg font-semibold text-gray-900">${{printf "%.2f" .CurrentBalance}}</dd>
+                        <dd class="text-lg font-semibold text-gray-900">{{.CurrentBalance}}</dd>
                     </dl>
                 </div>
             </div>
