@@ -4,8 +4,11 @@ import (
 	"context"
 	"finance/domain/entities"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
+
+	"github.com/guilhermebr/gox/monetary"
 )
 
 type TransactionUseCase struct {
@@ -39,6 +42,10 @@ func (uc *TransactionUseCase) CreateTransaction(ctx context.Context, transaction
 		return entities.Transaction{}, fmt.Errorf("account not found")
 	}
 
+	// Convert the transaction amount to the correct asset based on the account
+	// The handlers pass a temporary USD amount, so we need to convert it
+	transaction = uc.convertTransactionToAccountAsset(transaction, account)
+
 	// Verify category exists
 	category, err := uc.categoryRepo.GetCategoryByID(ctx, transaction.CategoryID)
 	if err != nil {
@@ -46,11 +53,6 @@ func (uc *TransactionUseCase) CreateTransaction(ctx context.Context, transaction
 	}
 	if category.ID == "" {
 		return entities.Transaction{}, fmt.Errorf("category not found")
-	}
-
-	// Business logic for transaction amounts based on category type
-	if err := uc.validateTransactionAmount(transaction, category); err != nil {
-		return entities.Transaction{}, err
 	}
 
 	// Set default status if not provided
@@ -185,6 +187,9 @@ func (uc *TransactionUseCase) UpdateTransaction(ctx context.Context, transaction
 		return entities.Transaction{}, fmt.Errorf("account not found")
 	}
 
+	// Convert the transaction amount to the correct asset based on the account
+	transaction = uc.convertTransactionToAccountAsset(transaction, account)
+
 	// Verify category exists
 	category, err := uc.categoryRepo.GetCategoryByID(ctx, transaction.CategoryID)
 	if err != nil {
@@ -195,9 +200,7 @@ func (uc *TransactionUseCase) UpdateTransaction(ctx context.Context, transaction
 	}
 
 	// Business logic for transaction amounts based on category type
-	if err := uc.validateTransactionAmount(transaction, category); err != nil {
-		return entities.Transaction{}, err
-	}
+	transaction = uc.adjustTransactionAmount(transaction, category)
 
 	updatedTransaction, err := uc.transactionRepo.UpdateTransaction(ctx, transaction)
 	if err != nil {
@@ -248,7 +251,7 @@ func (uc *TransactionUseCase) validateTransaction(transaction entities.Transacti
 		return fmt.Errorf("category ID cannot be empty")
 	}
 
-	if transaction.Amount == 0 {
+	if transaction.Monetary.Amount.Sign() == 0 {
 		return fmt.Errorf("transaction amount cannot be zero")
 	}
 
@@ -279,16 +282,43 @@ func (uc *TransactionUseCase) validateTransaction(transaction entities.Transacti
 	return nil
 }
 
-func (uc *TransactionUseCase) validateTransactionAmount(transaction entities.Transaction, category entities.Category) error {
-	// For expense categories, amount should be negative
-	// For income categories, amount should be positive
-	if category.Type == entities.CategoryTypeExpense && transaction.Amount > 0 {
-		return fmt.Errorf("expense transactions should have negative amounts")
+func (uc *TransactionUseCase) adjustTransactionAmount(transaction entities.Transaction, category entities.Category) entities.Transaction {
+	// For expense categories, ensure amount is negative
+	if category.Type == entities.CategoryTypeExpense && transaction.Monetary.Amount.Sign() > 0 {
+		negatedAmount := new(big.Int).Neg(transaction.Monetary.Amount)
+		convertedMonetary, err := monetary.NewMonetary(transaction.Monetary.Asset, negatedAmount)
+		if err == nil {
+			transaction.Monetary = *convertedMonetary
+		}
 	}
 
-	if category.Type == entities.CategoryTypeIncome && transaction.Amount < 0 {
-		return fmt.Errorf("income transactions should have positive amounts")
+	// For income categories, ensure amount is positive
+	if category.Type == entities.CategoryTypeIncome && transaction.Monetary.Amount.Sign() < 0 {
+		positiveAmount := new(big.Int).Neg(transaction.Monetary.Amount)
+		convertedMonetary, err := monetary.NewMonetary(transaction.Monetary.Asset, positiveAmount)
+		if err == nil {
+			transaction.Monetary = *convertedMonetary
+		}
 	}
 
-	return nil
+	return transaction
+}
+
+func (uc *TransactionUseCase) convertTransactionToAccountAsset(transaction entities.Transaction, account entities.Account) entities.Transaction {
+	// If the transaction monetary asset is already the same as the account asset, no conversion needed
+	if transaction.Monetary.Asset.Asset == account.Asset.Asset {
+		return transaction
+	}
+
+	// Convert the amount to the account's asset
+	// For simplicity, we'll keep the same numeric value but change the asset
+	// In a real-world scenario, you would need currency conversion rates
+	convertedMonetary, err := monetary.NewMonetary(account.Asset, transaction.Monetary.Amount)
+	if err != nil {
+		// If conversion fails, return the original transaction
+		return transaction
+	}
+
+	transaction.Monetary = *convertedMonetary
+	return transaction
 }

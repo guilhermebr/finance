@@ -12,6 +12,4 @@ type AccountRepository interface {
 	GetAllAccounts(ctx context.Context) ([]entities.Account, error)
 	UpdateAccount(ctx context.Context, account entities.Account) (entities.Account, error)
 	DeleteAccount(ctx context.Context, id string) error
-	GetAccountWithBalance(ctx context.Context, id string) (entities.Account, error)
-	GetAccountsWithBalances(ctx context.Context) ([]entities.Account, error)
 }

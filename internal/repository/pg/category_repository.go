@@ -23,7 +23,7 @@ func NewCategoryRepository(db *pgxpool.Pool) *CategoryRepository {
 }
 
 func (r *CategoryRepository) CreateCategory(ctx context.Context, category entities.Category) (entities.Category, error) {
-	result, err := r.queries.CreateCategory(ctx, category.Name, string(category.Type), &category.Description, &category.Color)
+	result, err := r.queries.CreateCategory(ctx, category.Name, string(category.Type), category.Description, category.Color)
 	if err != nil {
 		return entities.Category{}, err
 	}
@@ -32,8 +32,8 @@ func (r *CategoryRepository) CreateCategory(ctx context.Context, category entiti
 		ID:          result.ID.String(),
 		Name:        result.Name,
 		Type:        entities.CategoryType(result.Type),
-		Description: ptrStringValue(result.Description),
-		Color:       ptrStringValue(result.Color),
+		Description: result.Description,
+		Color:       result.Color,
 		CreatedAt:   result.CreatedAt,
 		UpdatedAt:   result.UpdatedAt,
 	}, nil
@@ -57,8 +57,8 @@ func (r *CategoryRepository) GetCategoryByID(ctx context.Context, id string) (en
 		ID:          result.ID.String(),
 		Name:        result.Name,
 		Type:        entities.CategoryType(result.Type),
-		Description: ptrStringValue(result.Description),
-		Color:       ptrStringValue(result.Color),
+		Description: result.Description,
+		Color:       result.Color,
 		CreatedAt:   result.CreatedAt,
 		UpdatedAt:   result.UpdatedAt,
 	}, nil
@@ -76,8 +76,8 @@ func (r *CategoryRepository) GetAllCategories(ctx context.Context) ([]entities.C
 			ID:          result.ID.String(),
 			Name:        result.Name,
 			Type:        entities.CategoryType(result.Type),
-			Description: ptrStringValue(result.Description),
-			Color:       ptrStringValue(result.Color),
+			Description: result.Description,
+			Color:       result.Color,
 			CreatedAt:   result.CreatedAt,
 			UpdatedAt:   result.UpdatedAt,
 		}
@@ -98,8 +98,8 @@ func (r *CategoryRepository) GetCategoriesByType(ctx context.Context, categoryTy
 			ID:          result.ID.String(),
 			Name:        result.Name,
 			Type:        entities.CategoryType(result.Type),
-			Description: ptrStringValue(result.Description),
-			Color:       ptrStringValue(result.Color),
+			Description: result.Description,
+			Color:       result.Color,
 			CreatedAt:   result.CreatedAt,
 			UpdatedAt:   result.UpdatedAt,
 		}
@@ -114,7 +114,7 @@ func (r *CategoryRepository) UpdateCategory(ctx context.Context, category entiti
 		return entities.Category{}, err
 	}
 
-	result, err := r.queries.UpdateCategory(ctx, uuid, category.Name, string(category.Type), &category.Description, &category.Color)
+	result, err := r.queries.UpdateCategory(ctx, uuid, category.Name, string(category.Type), category.Description, category.Color)
 	if err != nil {
 		return entities.Category{}, err
 	}
@@ -123,8 +123,8 @@ func (r *CategoryRepository) UpdateCategory(ctx context.Context, category entiti
 		ID:          result.ID.String(),
 		Name:        result.Name,
 		Type:        entities.CategoryType(result.Type),
-		Description: ptrStringValue(result.Description),
-		Color:       ptrStringValue(result.Color),
+		Description: result.Description,
+		Color:       result.Color,
 		CreatedAt:   result.CreatedAt,
 		UpdatedAt:   result.UpdatedAt,
 	}, nil

@@ -2,6 +2,8 @@ package entities
 
 import (
 	"time"
+
+	"github.com/guilhermebr/gox/monetary"
 )
 
 // TransactionStatus represents the status of a transaction
@@ -18,7 +20,7 @@ type Transaction struct {
 	ID          string            `json:"id" db:"id"`
 	AccountID   string            `json:"account_id" db:"account_id"`
 	CategoryID  string            `json:"category_id" db:"category_id"`
-	Amount      float64           `json:"amount" db:"amount"`
+	Monetary    monetary.Monetary `json:"monetary" db:"monetary"`
 	Description string            `json:"description" db:"description"`
 	Date        time.Time         `json:"date" db:"date"`
 	Status      TransactionStatus `json:"status" db:"status"`

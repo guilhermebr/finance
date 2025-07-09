@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"finance/domain/entities"
 	"finance/internal/repository/pg/gen"
+	"math/big"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
+	"github.com/guilhermebr/gox/monetary"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -37,11 +39,37 @@ func (r *BalanceRepository) GetBalanceByAccountID(ctx context.Context, accountID
 		return entities.Balance{}, err
 	}
 
+	// Get the account to retrieve the asset information
+	account, err := r.queries.GetAccountByID(ctx, result.AccountID)
+	if err != nil {
+		return entities.Balance{}, err
+	}
+
+	asset, ok := monetary.FindAssetByName(account.Asset)
+	if !ok {
+		asset = monetary.USD // default fallback
+	}
+
+	currentBalance, err := monetary.NewMonetary(asset, big.NewInt(result.CurrentBalance))
+	if err != nil {
+		return entities.Balance{}, err
+	}
+
+	pendingBalance, err := monetary.NewMonetary(asset, big.NewInt(result.PendingBalance))
+	if err != nil {
+		return entities.Balance{}, err
+	}
+
+	availableBalance, err := monetary.NewMonetary(asset, big.NewInt(result.AvailableBalance))
+	if err != nil {
+		return entities.Balance{}, err
+	}
+
 	return entities.Balance{
 		AccountID:        result.AccountID.String(),
-		CurrentBalance:   bigIntToFloat64(result.CurrentBalance),
-		PendingBalance:   bigIntToFloat64(result.PendingBalance),
-		AvailableBalance: bigIntToFloat64(result.AvailableBalance),
+		CurrentBalance:   *currentBalance,
+		PendingBalance:   *pendingBalance,
+		AvailableBalance: *availableBalance,
 		LastCalculated:   result.LastCalculated,
 	}, nil
 }
@@ -54,11 +82,37 @@ func (r *BalanceRepository) GetAllBalances(ctx context.Context) ([]entities.Bala
 
 	balances := make([]entities.Balance, len(results))
 	for i, result := range results {
+		// Get the account to retrieve the asset information
+		account, err := r.queries.GetAccountByID(ctx, result.AccountID)
+		if err != nil {
+			return nil, err
+		}
+
+		asset, ok := monetary.FindAssetByName(account.Asset)
+		if !ok {
+			asset = monetary.USD // default fallback
+		}
+
+		currentBalance, err := monetary.NewMonetary(asset, big.NewInt(result.CurrentBalance))
+		if err != nil {
+			return nil, err
+		}
+
+		pendingBalance, err := monetary.NewMonetary(asset, big.NewInt(result.PendingBalance))
+		if err != nil {
+			return nil, err
+		}
+
+		availableBalance, err := monetary.NewMonetary(asset, big.NewInt(result.AvailableBalance))
+		if err != nil {
+			return nil, err
+		}
+
 		balances[i] = entities.Balance{
 			AccountID:        result.AccountID.String(),
-			CurrentBalance:   bigIntToFloat64(result.CurrentBalance),
-			PendingBalance:   bigIntToFloat64(result.PendingBalance),
-			AvailableBalance: bigIntToFloat64(result.AvailableBalance),
+			CurrentBalance:   *currentBalance,
+			PendingBalance:   *pendingBalance,
+			AvailableBalance: *availableBalance,
 			LastCalculated:   result.LastCalculated,
 		}
 	}
@@ -82,15 +136,34 @@ func (r *BalanceRepository) GetBalanceSummary(ctx context.Context) (entities.Bal
 	}
 
 	// Convert interface{} values to proper types
-	totalAssets, _ := result.TotalAssets.(float64)
-	totalLiabilities, _ := result.TotalLiabilities.(float64)
-	netWorth, _ := result.NetWorth.(float64)
+	totalAssets, _ := result.TotalAssets.(int64)
+	totalLiabilities, _ := result.TotalLiabilities.(int64)
+	netWorth, _ := result.NetWorth.(int64)
 	lastCalculated, _ := result.LastCalculated.(time.Time)
 
+	// For balance summary, we'll use USD as the default asset
+	// In a real implementation, you might want to have a configurable base currency
+	usd := monetary.USD
+
+	totalAssetsMonetary, err := monetary.NewMonetary(usd, big.NewInt(totalAssets))
+	if err != nil {
+		return entities.BalanceSummary{}, err
+	}
+
+	totalLiabilitiesMonetary, err := monetary.NewMonetary(usd, big.NewInt(totalLiabilities))
+	if err != nil {
+		return entities.BalanceSummary{}, err
+	}
+
+	netWorthMonetary, err := monetary.NewMonetary(usd, big.NewInt(netWorth))
+	if err != nil {
+		return entities.BalanceSummary{}, err
+	}
+
 	return entities.BalanceSummary{
-		TotalAssets:      totalAssets,
-		TotalLiabilities: totalLiabilities,
-		NetWorth:         netWorth,
+		TotalAssets:      *totalAssetsMonetary,
+		TotalLiabilities: *totalLiabilitiesMonetary,
+		NetWorth:         *netWorthMonetary,
 		LastCalculated:   lastCalculated,
 	}, nil
 }

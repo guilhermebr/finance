@@ -1,9 +1,26 @@
 package main
 
+//	@title			Finance API
+//	@version		1.0
+//	@description	A finance management API for tracking accounts, transactions, categories, and balances
+//	@termsOfService	http://swagger.io/terms/
+
+//	@contact.name	API Support
+//	@contact.url	http://www.swagger.io/support
+//	@contact.email	support@swagger.io
+
+//	@license.name	Apache 2.0
+//	@license.url	http://www.apache.org/licenses/LICENSE-2.0.html
+
+//	@host		:3000
+//	@BasePath	/api/v1
+
+//	@externalDocs.description	OpenAPI
+//	@externalDocs.url			https://swagger.io/resources/open-api/
+
 import (
 	"context"
 	"errors"
-	"finance/domain/example"
 	"finance/domain/finance"
 	"finance/internal/api"
 	v1 "finance/internal/api/v1"
@@ -17,6 +34,8 @@ import (
 
 	"github.com/guilhermebr/gox/logger"
 	"github.com/guilhermebr/gox/postgres"
+
+	_ "finance/docs"
 )
 
 // Injected on build time by ldflags.
@@ -65,9 +84,6 @@ func main() {
 		return
 	}
 
-	// Legacy repository for examples
-	exampleRepo := pg.NewRepository(conn)
-
 	// Finance repositories
 	accountRepo := pg.NewAccountRepository(conn)
 	categoryRepo := pg.NewCategoryRepository(conn)
@@ -83,14 +99,13 @@ func main() {
 	// API Handlers V1
 	// ------------------------------------------
 	apiV1 := v1.ApiHandlers{
-		ExampleUseCase:     example.New(exampleRepo),
 		AccountUseCase:     accountUseCase,
 		CategoryUseCase:    categoryUseCase,
 		TransactionUseCase: transactionUseCase,
 		BalanceUseCase:     balanceUseCase,
 	}
 
-	router := api.Router()
+	router := api.Router(cfg)
 	apiV1.Routes(router)
 
 	// SERVER

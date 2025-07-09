@@ -1,14 +1,17 @@
 package api
 
 import (
+	"finance/internal/config"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
-func Router() *chi.Mux {
+func Router(cfg config.Config) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(
 		middleware.RedirectSlashes,
@@ -23,6 +26,11 @@ func Router() *chi.Mux {
 		middleware.Logger,
 		middleware.Recoverer,
 	)
+
+	// Swagger documentation routes
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL(fmt.Sprintf("http://%s/swagger/doc.json", cfg.Service.Address)),
+	))
 
 	return r
 }
