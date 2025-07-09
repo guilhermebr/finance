@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"finance/domain/entities"
 	"finance/internal/repository/pg/gen"
+	"math/big"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
+	"github.com/guilhermebr/gox/monetary"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -40,7 +42,27 @@ func (r *TransactionRepository) CreateTransaction(ctx context.Context, transacti
 		Valid: true,
 	}
 
-	result, err := r.queries.CreateTransaction(ctx, accountID, categoryID, *float64ToBigInt(transaction.Amount), transaction.Description, date, string(transaction.Status))
+	// Convert monetary to int64 for storage
+	amount := transaction.Monetary.Amount.Int64()
+
+	result, err := r.queries.CreateTransaction(ctx, accountID, categoryID, amount, transaction.Description, date, string(transaction.Status))
+	if err != nil {
+		return entities.Transaction{}, err
+	}
+
+	// Get the account to retrieve the asset information
+	account, err := r.queries.GetAccountByID(ctx, result.AccountID)
+	if err != nil {
+		return entities.Transaction{}, err
+	}
+
+	asset, ok := monetary.FindAssetByName(account.Asset)
+	if !ok {
+		asset = monetary.BRL // default fallback
+	}
+
+	// Convert back to monetary
+	monetaryAmount, err := monetary.NewMonetary(asset, big.NewInt(result.Amount))
 	if err != nil {
 		return entities.Transaction{}, err
 	}
@@ -49,7 +71,7 @@ func (r *TransactionRepository) CreateTransaction(ctx context.Context, transacti
 		ID:          result.ID.String(),
 		AccountID:   result.AccountID.String(),
 		CategoryID:  result.CategoryID.String(),
-		Amount:      bigIntToFloat64(result.Amount),
+		Monetary:    *monetaryAmount,
 		Description: result.Description,
 		Date:        result.Date.Time,
 		Status:      entities.TransactionStatus(result.Status),
@@ -72,11 +94,28 @@ func (r *TransactionRepository) GetTransactionByID(ctx context.Context, id strin
 		return entities.Transaction{}, err
 	}
 
+	// Get the account to retrieve the asset information
+	account, err := r.queries.GetAccountByID(ctx, result.AccountID)
+	if err != nil {
+		return entities.Transaction{}, err
+	}
+
+	asset, ok := monetary.FindAssetByName(account.Asset)
+	if !ok {
+		asset = monetary.BRL // default fallback
+	}
+
+	// Convert back to monetary
+	monetaryAmount, err := monetary.NewMonetary(asset, big.NewInt(result.Amount))
+	if err != nil {
+		return entities.Transaction{}, err
+	}
+
 	return entities.Transaction{
 		ID:          result.ID.String(),
 		AccountID:   result.AccountID.String(),
 		CategoryID:  result.CategoryID.String(),
-		Amount:      bigIntToFloat64(result.Amount),
+		Monetary:    *monetaryAmount,
 		Description: result.Description,
 		Date:        result.Date.Time,
 		Status:      entities.TransactionStatus(result.Status),
@@ -172,7 +211,27 @@ func (r *TransactionRepository) UpdateTransaction(ctx context.Context, transacti
 		Valid: true,
 	}
 
-	result, err := r.queries.UpdateTransaction(ctx, id, accountID, categoryID, *float64ToBigInt(transaction.Amount), transaction.Description, date, string(transaction.Status))
+	// Convert monetary to int64 for storage
+	amount := transaction.Monetary.Amount.Int64()
+
+	result, err := r.queries.UpdateTransaction(ctx, id, accountID, categoryID, amount, transaction.Description, date, string(transaction.Status))
+	if err != nil {
+		return entities.Transaction{}, err
+	}
+
+	// Get the account to retrieve the asset information
+	account, err := r.queries.GetAccountByID(ctx, result.AccountID)
+	if err != nil {
+		return entities.Transaction{}, err
+	}
+
+	asset, ok := monetary.FindAssetByName(account.Asset)
+	if !ok {
+		asset = monetary.BRL // default fallback
+	}
+
+	// Convert back to monetary
+	monetaryAmount, err := monetary.NewMonetary(asset, big.NewInt(result.Amount))
 	if err != nil {
 		return entities.Transaction{}, err
 	}
@@ -181,7 +240,7 @@ func (r *TransactionRepository) UpdateTransaction(ctx context.Context, transacti
 		ID:          result.ID.String(),
 		AccountID:   result.AccountID.String(),
 		CategoryID:  result.CategoryID.String(),
-		Amount:      bigIntToFloat64(result.Amount),
+		Monetary:    *monetaryAmount,
 		Description: result.Description,
 		Date:        result.Date.Time,
 		Status:      entities.TransactionStatus(result.Status),
@@ -201,11 +260,28 @@ func (r *TransactionRepository) UpdateTransactionStatus(ctx context.Context, id 
 		return entities.Transaction{}, err
 	}
 
+	// Get the account to retrieve the asset information
+	account, err := r.queries.GetAccountByID(ctx, result.AccountID)
+	if err != nil {
+		return entities.Transaction{}, err
+	}
+
+	asset, ok := monetary.FindAssetByName(account.Asset)
+	if !ok {
+		asset = monetary.BRL // default fallback
+	}
+
+	// Convert back to monetary
+	monetaryAmount, err := monetary.NewMonetary(asset, big.NewInt(result.Amount))
+	if err != nil {
+		return entities.Transaction{}, err
+	}
+
 	return entities.Transaction{
 		ID:          result.ID.String(),
 		AccountID:   result.AccountID.String(),
 		CategoryID:  result.CategoryID.String(),
-		Amount:      bigIntToFloat64(result.Amount),
+		Monetary:    *monetaryAmount,
 		Description: result.Description,
 		Date:        result.Date.Time,
 		Status:      entities.TransactionStatus(result.Status),
@@ -234,24 +310,37 @@ func (r *TransactionRepository) GetTransactionWithDetails(ctx context.Context, i
 		return entities.Transaction{}, err
 	}
 
+	asset, ok := monetary.FindAssetByName(result.AccountAsset)
+	if !ok {
+		asset = monetary.BRL // default fallback
+	}
+
+	// Convert back to monetary
+	monetaryAmount, err := monetary.NewMonetary(asset, big.NewInt(result.Amount))
+	if err != nil {
+		return entities.Transaction{}, err
+	}
+
 	return entities.Transaction{
 		ID:          result.ID.String(),
 		AccountID:   result.AccountID.String(),
 		CategoryID:  result.CategoryID.String(),
-		Amount:      bigIntToFloat64(result.Amount),
+		Monetary:    *monetaryAmount,
 		Description: result.Description,
 		Date:        result.Date.Time,
 		Status:      entities.TransactionStatus(result.Status),
 		CreatedAt:   result.CreatedAt,
 		UpdatedAt:   result.UpdatedAt,
 		Account: &entities.Account{
+			ID:   result.AccountID.String(),
 			Name: result.AccountName,
 			Type: entities.AccountType(result.AccountType),
 		},
 		Category: &entities.Category{
+			ID:    result.CategoryID.String(),
 			Name:  result.CategoryName,
 			Type:  entities.CategoryType(result.CategoryType),
-			Color: ptrStringValue(result.CategoryColor),
+			Color: result.CategoryColor,
 		},
 	}, nil
 }
@@ -264,24 +353,37 @@ func (r *TransactionRepository) GetTransactionsWithDetails(ctx context.Context, 
 
 	transactions := make([]entities.Transaction, len(results))
 	for i, result := range results {
+		asset, ok := monetary.FindAssetByName(result.AccountAsset)
+		if !ok {
+			asset = monetary.BRL // default fallback
+		}
+
+		// Convert back to monetary
+		monetaryAmount, err := monetary.NewMonetary(asset, big.NewInt(result.Amount))
+		if err != nil {
+			continue // skip this transaction if we can't get the account
+		}
+
 		transactions[i] = entities.Transaction{
 			ID:          result.ID.String(),
 			AccountID:   result.AccountID.String(),
 			CategoryID:  result.CategoryID.String(),
-			Amount:      bigIntToFloat64(result.Amount),
+			Monetary:    *monetaryAmount,
 			Description: result.Description,
 			Date:        result.Date.Time,
 			Status:      entities.TransactionStatus(result.Status),
 			CreatedAt:   result.CreatedAt,
 			UpdatedAt:   result.UpdatedAt,
 			Account: &entities.Account{
+				ID:   result.AccountID.String(),
 				Name: result.AccountName,
 				Type: entities.AccountType(result.AccountType),
 			},
 			Category: &entities.Category{
+				ID:    result.CategoryID.String(),
 				Name:  result.CategoryName,
 				Type:  entities.CategoryType(result.CategoryType),
-				Color: ptrStringValue(result.CategoryColor),
+				Color: result.CategoryColor,
 			},
 		}
 	}
@@ -292,11 +394,29 @@ func (r *TransactionRepository) GetTransactionsWithDetails(ctx context.Context, 
 func (r *TransactionRepository) convertTransactions(results []gen.Transaction) []entities.Transaction {
 	transactions := make([]entities.Transaction, len(results))
 	for i, result := range results {
+		// For convertTransactions, we need to fetch the account to get the asset
+		// This is not ideal but necessary for the current implementation
+		account, err := r.queries.GetAccountByID(context.Background(), result.AccountID)
+		if err != nil {
+			continue // skip this transaction if we can't get the account
+		}
+
+		asset, ok := monetary.FindAssetByName(account.Asset)
+		if !ok {
+			asset = monetary.BRL // default fallback
+		}
+
+		// Convert back to monetary
+		monetaryAmount, err := monetary.NewMonetary(asset, big.NewInt(result.Amount))
+		if err != nil {
+			continue // skip this transaction if we can't get the account
+		}
+
 		transactions[i] = entities.Transaction{
 			ID:          result.ID.String(),
 			AccountID:   result.AccountID.String(),
 			CategoryID:  result.CategoryID.String(),
-			Amount:      bigIntToFloat64(result.Amount),
+			Monetary:    *monetaryAmount,
 			Description: result.Description,
 			Date:        result.Date.Time,
 			Status:      entities.TransactionStatus(result.Status),
@@ -304,5 +424,6 @@ func (r *TransactionRepository) convertTransactions(results []gen.Transaction) [
 			UpdatedAt:   result.UpdatedAt,
 		}
 	}
+
 	return transactions
 }

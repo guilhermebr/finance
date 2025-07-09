@@ -11,27 +11,32 @@ import (
 
 	uuid "github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"math/big"
 )
 
 const createAccount = `-- name: CreateAccount :one
 
-INSERT INTO accounts (name, type, description)
-VALUES ($1, $2, $3)
-RETURNING id, name, type, description, created_at, updated_at
+INSERT INTO accounts (name, type, description, asset)
+VALUES ($1, $2, $3, $4)
+RETURNING id, name, type, description, asset, created_at, updated_at
 `
 
 // =============================================================================
 // ACCOUNTS
 // =============================================================================
-func (q *Queries) CreateAccount(ctx context.Context, name string, type_ string, description *string) (Account, error) {
-	row := q.db.QueryRow(ctx, createAccount, name, type_, description)
+func (q *Queries) CreateAccount(ctx context.Context, name string, type_ string, description string, asset string) (Account, error) {
+	row := q.db.QueryRow(ctx, createAccount,
+		name,
+		type_,
+		description,
+		asset,
+	)
 	var i Account
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.Type,
 		&i.Description,
+		&i.Asset,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -48,7 +53,7 @@ RETURNING id, name, type, description, color, created_at, updated_at
 // =============================================================================
 // CATEGORIES
 // =============================================================================
-func (q *Queries) CreateCategory(ctx context.Context, name string, type_ string, description *string, color *string) (Category, error) {
+func (q *Queries) CreateCategory(ctx context.Context, name string, type_ string, description string, color string) (Category, error) {
 	row := q.db.QueryRow(ctx, createCategory,
 		name,
 		type_,
@@ -78,7 +83,7 @@ RETURNING id, account_id, category_id, amount, description, date, status, create
 // =============================================================================
 // TRANSACTIONS
 // =============================================================================
-func (q *Queries) CreateTransaction(ctx context.Context, accountID uuid.UUID, categoryID uuid.UUID, amount big.Int, description string, date pgtype.Date, status string) (Transaction, error) {
+func (q *Queries) CreateTransaction(ctx context.Context, accountID uuid.UUID, categoryID uuid.UUID, amount int64, description string, date pgtype.Date, status string) (Transaction, error) {
 	row := q.db.QueryRow(ctx, createTransaction,
 		accountID,
 		categoryID,
@@ -130,7 +135,7 @@ func (q *Queries) DeleteTransaction(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAccountByID = `-- name: GetAccountByID :one
-SELECT id, name, type, description, created_at, updated_at
+SELECT id, name, type, description, asset, created_at, updated_at
 FROM accounts
 WHERE id = $1
 `
@@ -143,6 +148,7 @@ func (q *Queries) GetAccountByID(ctx context.Context, id uuid.UUID) (Account, er
 		&i.Name,
 		&i.Type,
 		&i.Description,
+		&i.Asset,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -151,7 +157,7 @@ func (q *Queries) GetAccountByID(ctx context.Context, id uuid.UUID) (Account, er
 
 const getAccountWithBalance = `-- name: GetAccountWithBalance :one
 SELECT 
-    a.id, a.name, a.type, a.description, a.created_at, a.updated_at,
+    a.id, a.name, a.type, a.description, a.asset, a.created_at, a.updated_at,
     COALESCE(b.current_balance, 0) as current_balance,
     COALESCE(b.pending_balance, 0) as pending_balance,
     COALESCE(b.available_balance, 0) as available_balance
@@ -164,12 +170,13 @@ type GetAccountWithBalanceRow struct {
 	ID               uuid.UUID `json:"id"`
 	Name             string    `json:"name"`
 	Type             string    `json:"type"`
-	Description      *string   `json:"description"`
+	Description      string    `json:"description"`
+	Asset            string    `json:"asset"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
-	CurrentBalance   big.Int   `json:"currentBalance"`
-	PendingBalance   big.Int   `json:"pendingBalance"`
-	AvailableBalance big.Int   `json:"availableBalance"`
+	CurrentBalance   int64     `json:"currentBalance"`
+	PendingBalance   int64     `json:"pendingBalance"`
+	AvailableBalance int64     `json:"availableBalance"`
 }
 
 func (q *Queries) GetAccountWithBalance(ctx context.Context, id uuid.UUID) (GetAccountWithBalanceRow, error) {
@@ -180,6 +187,7 @@ func (q *Queries) GetAccountWithBalance(ctx context.Context, id uuid.UUID) (GetA
 		&i.Name,
 		&i.Type,
 		&i.Description,
+		&i.Asset,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CurrentBalance,
@@ -191,7 +199,7 @@ func (q *Queries) GetAccountWithBalance(ctx context.Context, id uuid.UUID) (GetA
 
 const getAccountsWithBalances = `-- name: GetAccountsWithBalances :many
 SELECT 
-    a.id, a.name, a.type, a.description, a.created_at, a.updated_at,
+    a.id, a.name, a.type, a.description, a.asset, a.created_at, a.updated_at,
     COALESCE(b.current_balance, 0) as current_balance,
     COALESCE(b.pending_balance, 0) as pending_balance,
     COALESCE(b.available_balance, 0) as available_balance
@@ -204,12 +212,13 @@ type GetAccountsWithBalancesRow struct {
 	ID               uuid.UUID `json:"id"`
 	Name             string    `json:"name"`
 	Type             string    `json:"type"`
-	Description      *string   `json:"description"`
+	Description      string    `json:"description"`
+	Asset            string    `json:"asset"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
-	CurrentBalance   big.Int   `json:"currentBalance"`
-	PendingBalance   big.Int   `json:"pendingBalance"`
-	AvailableBalance big.Int   `json:"availableBalance"`
+	CurrentBalance   int64     `json:"currentBalance"`
+	PendingBalance   int64     `json:"pendingBalance"`
+	AvailableBalance int64     `json:"availableBalance"`
 }
 
 func (q *Queries) GetAccountsWithBalances(ctx context.Context) ([]GetAccountsWithBalancesRow, error) {
@@ -226,6 +235,7 @@ func (q *Queries) GetAccountsWithBalances(ctx context.Context) ([]GetAccountsWit
 			&i.Name,
 			&i.Type,
 			&i.Description,
+			&i.Asset,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CurrentBalance,
@@ -243,7 +253,7 @@ func (q *Queries) GetAccountsWithBalances(ctx context.Context) ([]GetAccountsWit
 }
 
 const getAllAccounts = `-- name: GetAllAccounts :many
-SELECT id, name, type, description, created_at, updated_at
+SELECT id, name, type, description, asset, created_at, updated_at
 FROM accounts
 ORDER BY name
 `
@@ -262,6 +272,7 @@ func (q *Queries) GetAllAccounts(ctx context.Context) ([]Account, error) {
 			&i.Name,
 			&i.Type,
 			&i.Description,
+			&i.Asset,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -512,7 +523,7 @@ const getTransactionWithDetails = `-- name: GetTransactionWithDetails :one
 
 SELECT 
     t.id, t.account_id, t.category_id, t.amount, t.description, t.date, t.status, t.created_at, t.updated_at,
-    a.name as account_name, a.type as account_type,
+    a.name as account_name, a.type as account_type, a.asset as account_asset,
     c.name as category_name, c.type as category_type, c.color as category_color
 FROM transactions t
 JOIN accounts a ON t.account_id = a.id
@@ -524,7 +535,7 @@ type GetTransactionWithDetailsRow struct {
 	ID            uuid.UUID   `json:"id"`
 	AccountID     uuid.UUID   `json:"accountId"`
 	CategoryID    uuid.UUID   `json:"categoryId"`
-	Amount        big.Int     `json:"amount"`
+	Amount        int64       `json:"amount"`
 	Description   string      `json:"description"`
 	Date          pgtype.Date `json:"date"`
 	Status        string      `json:"status"`
@@ -532,9 +543,10 @@ type GetTransactionWithDetailsRow struct {
 	UpdatedAt     time.Time   `json:"updatedAt"`
 	AccountName   string      `json:"accountName"`
 	AccountType   string      `json:"accountType"`
+	AccountAsset  string      `json:"accountAsset"`
 	CategoryName  string      `json:"categoryName"`
 	CategoryType  string      `json:"categoryType"`
-	CategoryColor *string     `json:"categoryColor"`
+	CategoryColor string      `json:"categoryColor"`
 }
 
 // =============================================================================
@@ -555,6 +567,7 @@ func (q *Queries) GetTransactionWithDetails(ctx context.Context, id uuid.UUID) (
 		&i.UpdatedAt,
 		&i.AccountName,
 		&i.AccountType,
+		&i.AccountAsset,
 		&i.CategoryName,
 		&i.CategoryType,
 		&i.CategoryColor,
@@ -713,7 +726,7 @@ func (q *Queries) GetTransactionsByDateRange(ctx context.Context, date pgtype.Da
 const getTransactionsWithDetails = `-- name: GetTransactionsWithDetails :many
 SELECT 
     t.id, t.account_id, t.category_id, t.amount, t.description, t.date, t.status, t.created_at, t.updated_at,
-    a.name as account_name, a.type as account_type,
+    a.name as account_name, a.type as account_type, a.asset as account_asset,
     c.name as category_name, c.type as category_type, c.color as category_color
 FROM transactions t
 JOIN accounts a ON t.account_id = a.id
@@ -726,7 +739,7 @@ type GetTransactionsWithDetailsRow struct {
 	ID            uuid.UUID   `json:"id"`
 	AccountID     uuid.UUID   `json:"accountId"`
 	CategoryID    uuid.UUID   `json:"categoryId"`
-	Amount        big.Int     `json:"amount"`
+	Amount        int64       `json:"amount"`
 	Description   string      `json:"description"`
 	Date          pgtype.Date `json:"date"`
 	Status        string      `json:"status"`
@@ -734,9 +747,10 @@ type GetTransactionsWithDetailsRow struct {
 	UpdatedAt     time.Time   `json:"updatedAt"`
 	AccountName   string      `json:"accountName"`
 	AccountType   string      `json:"accountType"`
+	AccountAsset  string      `json:"accountAsset"`
 	CategoryName  string      `json:"categoryName"`
 	CategoryType  string      `json:"categoryType"`
-	CategoryColor *string     `json:"categoryColor"`
+	CategoryColor string      `json:"categoryColor"`
 }
 
 func (q *Queries) GetTransactionsWithDetails(ctx context.Context, limit int32, offset int32) ([]GetTransactionsWithDetailsRow, error) {
@@ -760,6 +774,7 @@ func (q *Queries) GetTransactionsWithDetails(ctx context.Context, limit int32, o
 			&i.UpdatedAt,
 			&i.AccountName,
 			&i.AccountType,
+			&i.AccountAsset,
 			&i.CategoryName,
 			&i.CategoryType,
 			&i.CategoryColor,
@@ -785,17 +800,18 @@ func (q *Queries) RefreshAccountBalance(ctx context.Context, accountUuid uuid.UU
 
 const updateAccount = `-- name: UpdateAccount :one
 UPDATE accounts
-SET name = $2, type = $3, description = $4, updated_at = NOW()
+SET name = $2, type = $3, description = $4, asset = $5, updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, type, description, created_at, updated_at
+RETURNING id, name, type, description, asset, created_at, updated_at
 `
 
-func (q *Queries) UpdateAccount(ctx context.Context, iD uuid.UUID, name string, type_ string, description *string) (Account, error) {
+func (q *Queries) UpdateAccount(ctx context.Context, iD uuid.UUID, name string, type_ string, description string, asset string) (Account, error) {
 	row := q.db.QueryRow(ctx, updateAccount,
 		iD,
 		name,
 		type_,
 		description,
+		asset,
 	)
 	var i Account
 	err := row.Scan(
@@ -803,6 +819,7 @@ func (q *Queries) UpdateAccount(ctx context.Context, iD uuid.UUID, name string, 
 		&i.Name,
 		&i.Type,
 		&i.Description,
+		&i.Asset,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -816,7 +833,7 @@ WHERE id = $1
 RETURNING id, name, type, description, color, created_at, updated_at
 `
 
-func (q *Queries) UpdateCategory(ctx context.Context, iD uuid.UUID, name string, type_ string, description *string, color *string) (Category, error) {
+func (q *Queries) UpdateCategory(ctx context.Context, iD uuid.UUID, name string, type_ string, description string, color string) (Category, error) {
 	row := q.db.QueryRow(ctx, updateCategory,
 		iD,
 		name,
@@ -844,7 +861,7 @@ WHERE id = $1
 RETURNING id, account_id, category_id, amount, description, date, status, created_at, updated_at
 `
 
-func (q *Queries) UpdateTransaction(ctx context.Context, iD uuid.UUID, accountID uuid.UUID, categoryID uuid.UUID, amount big.Int, description string, date pgtype.Date, status string) (Transaction, error) {
+func (q *Queries) UpdateTransaction(ctx context.Context, iD uuid.UUID, accountID uuid.UUID, categoryID uuid.UUID, amount int64, description string, date pgtype.Date, status string) (Transaction, error) {
 	row := q.db.QueryRow(ctx, updateTransaction,
 		iD,
 		accountID,

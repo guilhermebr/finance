@@ -1,11 +1,16 @@
 BEGIN TRANSACTION;
 
--- Create accounts table
+-- =============================================================================
+-- FINANCE TABLES
+-- =============================================================================
+
+-- Create accounts table (with asset column included)
 CREATE TABLE IF NOT EXISTS accounts (
     "id" UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
     "name" TEXT NOT NULL,
     "type" TEXT NOT NULL CHECK (type IN ('checking', 'savings', 'credit', 'investment', 'cash')),
-    "description" TEXT,
+    "description" TEXT NOT NULL DEFAULT '',
+    "asset" TEXT NOT NULL DEFAULT 'BRL' CHECK (asset IN ('BRL', 'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'BTC', 'ETH')),
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -15,35 +20,37 @@ CREATE TABLE IF NOT EXISTS categories (
     "id" UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
     "name" TEXT NOT NULL,
     "type" TEXT NOT NULL CHECK (type IN ('income', 'expense')),
-    "description" TEXT,
-    "color" TEXT DEFAULT '#6B7280',
+    "description" TEXT NOT NULL DEFAULT '',
+    "color" TEXT NOT NULL DEFAULT '#6B7280',
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create transactions table
+-- Create transactions table (with BIGINT amounts for precise monetary calculations)
 CREATE TABLE IF NOT EXISTS transactions (
     "id" UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
     "account_id" UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     "category_id" UUID NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
-    "amount" DECIMAL(12,2) NOT NULL,
-    "description" TEXT NOT NULL,
+    "amount" BIGINT NOT NULL, -- Stored as smallest currency unit (cents, satoshis, etc.)
+    "description" TEXT NOT NULL DEFAULT '',
     "date" DATE NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'cleared' CHECK (status IN ('pending', 'cleared', 'cancelled')),
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create balances table for caching account balances
+-- Create balances table for caching account balances (with BIGINT amounts)
 CREATE TABLE IF NOT EXISTS balances (
     "account_id" UUID NOT NULL PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
-    "current_balance" DECIMAL(12,2) NOT NULL DEFAULT 0,
-    "pending_balance" DECIMAL(12,2) NOT NULL DEFAULT 0,
-    "available_balance" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "current_balance" BIGINT NOT NULL DEFAULT 0, -- Stored as smallest currency unit
+    "pending_balance" BIGINT NOT NULL DEFAULT 0, -- Stored as smallest currency unit
+    "available_balance" BIGINT NOT NULL DEFAULT 0, -- Stored as smallest currency unit
     "last_calculated" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create indexes for performance
+-- =============================================================================
+-- INDEXES FOR PERFORMANCE
+-- =============================================================================
 CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_category_id ON transactions(category_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
@@ -51,6 +58,10 @@ CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 
 -- Create unique constraint for category names within type
 CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name_type ON categories(name, type);
+
+-- =============================================================================
+-- DEFAULT DATA
+-- =============================================================================
 
 -- Insert default categories
 INSERT INTO categories (name, type, description, color) VALUES
@@ -69,6 +80,10 @@ INSERT INTO categories (name, type, description, color) VALUES
     ('Credit Card', 'expense', 'Credit card payments', '#6B7280'),
     ('Other Expense', 'expense', 'Miscellaneous expenses', '#9CA3AF')
 ON CONFLICT (name, type) DO NOTHING;
+
+-- =============================================================================
+-- FUNCTIONS AND TRIGGERS
+-- =============================================================================
 
 -- Function to update balances after transaction changes
 CREATE OR REPLACE FUNCTION update_account_balance(account_uuid UUID)

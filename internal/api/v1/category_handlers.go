@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"encoding/json"
 	"finance/domain/entities"
 	"net/http"
@@ -34,7 +35,28 @@ type CategoryResponse struct {
 	UpdatedAt   string                `json:"updated_at"`
 }
 
+//go:generate moq -skip-ensure -stub -pkg mocks -out mocks/category_uc.go . CategoryUseCase
+type CategoryUseCase interface {
+	CreateCategory(ctx context.Context, category entities.Category) (entities.Category, error)
+	GetCategoryByID(ctx context.Context, id string) (entities.Category, error)
+	GetAllCategories(ctx context.Context) ([]entities.Category, error)
+	UpdateCategory(ctx context.Context, category entities.Category) (entities.Category, error)
+	DeleteCategory(ctx context.Context, id string) error
+}
+
 // Category handlers
+
+// CreateCategory creates a new category
+//
+//	@Summary		Create a new category
+//	@Description	Create a new transaction category with the provided details
+//	@Tags			categories
+//	@Accept			json
+//	@Produce		json
+//	@Param			category	body		CreateCategoryRequest	true	"Category data"
+//	@Success		201			{object}	CategoryResponse		"Category created successfully"
+//	@Failure		400			{object}	ErrorResponseBody		"Bad request"
+//	@Router			/categories [post]
 func (h *ApiHandlers) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	var req CreateCategoryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -69,6 +91,18 @@ func (h *ApiHandlers) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, response)
 }
 
+// GetCategoryByID retrieves a category by its ID
+//
+//	@Summary		Get category by ID
+//	@Description	Retrieve a specific category by its unique identifier
+//	@Tags			categories
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		string			true	"Category ID"
+//	@Success		200	{object}	CategoryResponse	"Category retrieved successfully"
+//	@Failure		400	{object}	ErrorResponseBody	"Bad request"
+//	@Failure		404	{object}	ErrorResponseBody	"Category not found"
+//	@Router			/categories/{id} [get]
 func (h *ApiHandlers) GetCategoryByID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
@@ -100,6 +134,16 @@ func (h *ApiHandlers) GetCategoryByID(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, response)
 }
 
+// GetAllCategories retrieves all categories
+//
+//	@Summary		Get all categories
+//	@Description	Retrieve a list of all transaction categories
+//	@Tags			categories
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{array}		CategoryResponse	"Categories retrieved successfully"
+//	@Failure		500	{object}	ErrorResponseBody	"Internal server error"
+//	@Router			/categories [get]
 func (h *ApiHandlers) GetAllCategories(w http.ResponseWriter, r *http.Request) {
 	categories, err := h.CategoryUseCase.GetAllCategories(r.Context())
 	if err != nil {
@@ -123,6 +167,19 @@ func (h *ApiHandlers) GetAllCategories(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, responses)
 }
 
+// UpdateCategory updates an existing category
+//
+//	@Summary		Update category
+//	@Description	Update an existing category with new information
+//	@Tags			categories
+//	@Accept			json
+//	@Produce		json
+//	@Param			id			path		string					true	"Category ID"
+//	@Param			category	body		UpdateCategoryRequest	true	"Updated category data"
+//	@Success		200			{object}	CategoryResponse		"Category updated successfully"
+//	@Failure		400			{object}	ErrorResponseBody		"Bad request"
+//	@Failure		404			{object}	ErrorResponseBody		"Category not found"
+//	@Router			/categories/{id} [put]
 func (h *ApiHandlers) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
@@ -163,6 +220,18 @@ func (h *ApiHandlers) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, response)
 }
 
+// DeleteCategory deletes a category
+//
+//	@Summary		Delete category
+//	@Description	Delete a category by its ID
+//	@Tags			categories
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path	string	true	"Category ID"
+//	@Success		204	"Category deleted successfully"
+//	@Failure		400	{object}	ErrorResponseBody	"Bad request"
+//	@Failure		404	{object}	ErrorResponseBody	"Category not found"
+//	@Router			/categories/{id} [delete]
 func (h *ApiHandlers) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {

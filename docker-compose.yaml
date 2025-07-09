@@ -5,7 +5,7 @@ networks:
 
 services:
   db:
-    container_name: db
+    container_name: finance_db
     image: postgres:latest
     restart: unless-stopped
     ports:
@@ -13,9 +13,9 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: app
+      POSTGRES_DB: finance
     volumes:
-      - db:/var/lib/postgresql/data
+      - finance_db:/var/lib/postgresql/data
     networks:
       - app
     healthcheck:
@@ -38,10 +38,10 @@ services:
       DATABASE_HOST: db
       DATABASE_USER: postgres
       DATABASE_PASSWORD: postgres
-      DATABASE_NAME: app
+      DATABASE_NAME: finance
     command: make migration/up
     restart: "no"
 
 volumes:
-  db:
+  finance_db:
     driver: local

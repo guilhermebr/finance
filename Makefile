@@ -83,7 +83,7 @@ setup: install-migration install-moq install-linters install-test-fmt install-go
 # ###########
 
 .PHONY: generate
-generate: sqlc-generate
+generate: sqlc-generate swagger-generate
 	@echo "==> Running go generate"
 	@go generate ./...
 
@@ -93,6 +93,10 @@ sqlc-generate:
 	@rm -f internal/repository/pg/gen/*.go
 	@sqlc generate
 
+.PHONY: swagger-generate
+swagger-generate:
+	@echo "==> Generating swagger code"
+	@swag init -g cmd/service/main.go -d . -o docs
 
 # ###########
 # Lint

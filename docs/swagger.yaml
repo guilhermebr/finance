@@ -1,0 +1,733 @@
+basePath: /api/v1
+definitions:
+  entities.AccountType:
+    enum:
+    - checking
+    - savings
+    - credit
+    - investment
+    - cash
+    type: string
+    x-enum-varnames:
+    - AccountTypeChecking
+    - AccountTypeSavings
+    - AccountTypeCredit
+    - AccountTypeInvestment
+    - AccountTypeCash
+  entities.CategoryType:
+    enum:
+    - income
+    - expense
+    type: string
+    x-enum-varnames:
+    - CategoryTypeIncome
+    - CategoryTypeExpense
+  entities.TransactionStatus:
+    enum:
+    - pending
+    - cleared
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - TransactionStatusPending
+    - TransactionStatusCleared
+    - TransactionStatusCancelled
+  v1.AccountResponse:
+    properties:
+      asset:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      type:
+        $ref: '#/definitions/entities.AccountType'
+      updated_at:
+        type: string
+    type: object
+  v1.BalanceResponse:
+    properties:
+      account:
+        $ref: '#/definitions/v1.AccountResponse'
+      account_id:
+        type: string
+      available_balance:
+        type: string
+      current_balance:
+        type: string
+      last_calculated:
+        type: string
+      pending_balance:
+        type: string
+    type: object
+  v1.BalanceSummaryResponse:
+    properties:
+      last_calculated:
+        type: string
+      net_worth:
+        type: string
+      total_assets:
+        type: string
+      total_liabilities:
+        type: string
+    type: object
+  v1.CategoryResponse:
+    properties:
+      color:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      type:
+        $ref: '#/definitions/entities.CategoryType'
+      updated_at:
+        type: string
+    type: object
+  v1.CreateAccountRequest:
+    properties:
+      asset:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      type:
+        $ref: '#/definitions/entities.AccountType'
+    type: object
+  v1.CreateCategoryRequest:
+    properties:
+      color:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      type:
+        $ref: '#/definitions/entities.CategoryType'
+    type: object
+  v1.CreateTransactionRequest:
+    properties:
+      account_id:
+        type: string
+      amount:
+        type: string
+      category_id:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      status:
+        $ref: '#/definitions/entities.TransactionStatus'
+    type: object
+  v1.ErrorResponseBody:
+    properties:
+      error:
+        type: string
+    type: object
+  v1.TransactionResponse:
+    properties:
+      account:
+        $ref: '#/definitions/v1.AccountResponse'
+      account_id:
+        type: string
+      amount:
+        type: string
+      category:
+        $ref: '#/definitions/v1.CategoryResponse'
+      category_id:
+        type: string
+      created_at:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      status:
+        $ref: '#/definitions/entities.TransactionStatus'
+      updated_at:
+        type: string
+    type: object
+  v1.UpdateAccountRequest:
+    properties:
+      asset:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      type:
+        $ref: '#/definitions/entities.AccountType'
+    type: object
+  v1.UpdateCategoryRequest:
+    properties:
+      color:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      type:
+        $ref: '#/definitions/entities.CategoryType'
+    type: object
+  v1.UpdateTransactionRequest:
+    properties:
+      account_id:
+        type: string
+      amount:
+        type: string
+      category_id:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      status:
+        $ref: '#/definitions/entities.TransactionStatus'
+    type: object
+externalDocs:
+  description: OpenAPI
+  url: https://swagger.io/resources/open-api/
+host: :3000
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: A finance management API for tracking accounts, transactions, categories,
+    and balances
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Finance API
+  version: "1.0"
+paths:
+  /accounts:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all financial accounts
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Accounts retrieved successfully
+          schema:
+            items:
+              $ref: '#/definitions/v1.AccountResponse'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Get all accounts
+      tags:
+      - accounts
+    post:
+      consumes:
+      - application/json
+      description: Create a new financial account with the provided details
+      parameters:
+      - description: Account data
+        in: body
+        name: account
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Account created successfully
+          schema:
+            $ref: '#/definitions/v1.AccountResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Create a new account
+      tags:
+      - accounts
+  /accounts/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an account by its ID
+      parameters:
+      - description: Account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Account deleted successfully
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+        "404":
+          description: Account not found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Delete account
+      tags:
+      - accounts
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific account by its unique identifier
+      parameters:
+      - description: Account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Account retrieved successfully
+          schema:
+            $ref: '#/definitions/v1.AccountResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+        "404":
+          description: Account not found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Get account by ID
+      tags:
+      - accounts
+    put:
+      consumes:
+      - application/json
+      description: Update an existing account with new information
+      parameters:
+      - description: Account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated account data
+        in: body
+        name: account
+        required: true
+        schema:
+          $ref: '#/definitions/v1.UpdateAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Account updated successfully
+          schema:
+            $ref: '#/definitions/v1.AccountResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+        "404":
+          description: Account not found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Update account
+      tags:
+      - accounts
+  /balances:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all account balances
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Balances retrieved successfully
+          schema:
+            items:
+              $ref: '#/definitions/v1.BalanceResponse'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Get all balances
+      tags:
+      - balances
+  /balances/{accountId}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the balance information for a specific account
+      parameters:
+      - description: Account ID
+        in: path
+        name: accountId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Balance retrieved successfully
+          schema:
+            $ref: '#/definitions/v1.BalanceResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+        "404":
+          description: Balance not found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Get balance by account ID
+      tags:
+      - balances
+  /balances/{accountId}/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Recalculate and refresh the balance for a specific account
+      parameters:
+      - description: Account ID
+        in: path
+        name: accountId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Balance refreshed successfully
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+        "404":
+          description: Account not found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Refresh account balance
+      tags:
+      - balances
+  /balances/summary:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a summary of all account balances including total assets,
+        liabilities, and net worth
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Balance summary retrieved successfully
+          schema:
+            $ref: '#/definitions/v1.BalanceSummaryResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Get balance summary
+      tags:
+      - balances
+  /categories:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all transaction categories
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Categories retrieved successfully
+          schema:
+            items:
+              $ref: '#/definitions/v1.CategoryResponse'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Get all categories
+      tags:
+      - categories
+    post:
+      consumes:
+      - application/json
+      description: Create a new transaction category with the provided details
+      parameters:
+      - description: Category data
+        in: body
+        name: category
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Category created successfully
+          schema:
+            $ref: '#/definitions/v1.CategoryResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Create a new category
+      tags:
+      - categories
+  /categories/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a category by its ID
+      parameters:
+      - description: Category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Category deleted successfully
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+        "404":
+          description: Category not found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Delete category
+      tags:
+      - categories
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific category by its unique identifier
+      parameters:
+      - description: Category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Category retrieved successfully
+          schema:
+            $ref: '#/definitions/v1.CategoryResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+        "404":
+          description: Category not found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Get category by ID
+      tags:
+      - categories
+    put:
+      consumes:
+      - application/json
+      description: Update an existing category with new information
+      parameters:
+      - description: Category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated category data
+        in: body
+        name: category
+        required: true
+        schema:
+          $ref: '#/definitions/v1.UpdateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Category updated successfully
+          schema:
+            $ref: '#/definitions/v1.CategoryResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+        "404":
+          description: Category not found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Update category
+      tags:
+      - categories
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: Check if the service is healthy and running
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Service is healthy
+      summary: Health check
+      tags:
+      - health
+  /transactions:
+    get:
+      consumes:
+      - application/json
+      description: 'Retrieve a list of all financial transactions with pagination
+        (limit: 50, offset: 0)'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transactions retrieved successfully
+          schema:
+            items:
+              $ref: '#/definitions/v1.TransactionResponse'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Get all transactions
+      tags:
+      - transactions
+    post:
+      consumes:
+      - application/json
+      description: Create a new financial transaction with the provided details
+      parameters:
+      - description: Transaction data
+        in: body
+        name: transaction
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateTransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Transaction created successfully
+          schema:
+            $ref: '#/definitions/v1.TransactionResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Create a new transaction
+      tags:
+      - transactions
+  /transactions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a transaction by its ID
+      parameters:
+      - description: Transaction ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Transaction deleted successfully
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+        "404":
+          description: Transaction not found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Delete transaction
+      tags:
+      - transactions
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific transaction by its unique identifier
+      parameters:
+      - description: Transaction ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction retrieved successfully
+          schema:
+            $ref: '#/definitions/v1.TransactionResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+        "404":
+          description: Transaction not found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Get transaction by ID
+      tags:
+      - transactions
+    put:
+      consumes:
+      - application/json
+      description: Update an existing transaction with new information
+      parameters:
+      - description: Transaction ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated transaction data
+        in: body
+        name: transaction
+        required: true
+        schema:
+          $ref: '#/definitions/v1.UpdateTransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction updated successfully
+          schema:
+            $ref: '#/definitions/v1.TransactionResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+        "404":
+          description: Transaction not found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponseBody'
+      summary: Update transaction
+      tags:
+      - transactions
+swagger: "2.0"

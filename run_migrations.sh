@@ -5,6 +5,6 @@
 export DATABASE_HOST=localhost
 export DATABASE_USER=postgres
 export DATABASE_PASSWORD=postgres
-export DATABASE_NAME=app
+export DATABASE_NAME=finance
 
-make migration/up
+make migration/$1

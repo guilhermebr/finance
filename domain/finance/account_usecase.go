@@ -4,7 +4,10 @@ import (
 	"context"
 	"finance/domain/entities"
 	"fmt"
+	"log/slog"
 	"strings"
+
+	"github.com/guilhermebr/gox/monetary"
 )
 
 type AccountUseCase struct {
@@ -34,6 +37,7 @@ func (uc *AccountUseCase) CreateAccount(ctx context.Context, account entities.Ac
 	// Initialize balance for the new account
 	err = uc.balanceRepo.RefreshAccountBalance(ctx, createdAccount.ID)
 	if err != nil {
+		slog.Error("failed to refresh account balance")
 		// Log the error but don't fail the account creation
 		// The balance will be calculated when the first transaction is added
 	}
@@ -58,15 +62,6 @@ func (uc *AccountUseCase) GetAllAccounts(ctx context.Context) ([]entities.Accoun
 	accounts, err := uc.accountRepo.GetAllAccounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get accounts: %w", err)
-	}
-
-	return accounts, nil
-}
-
-func (uc *AccountUseCase) GetAccountsWithBalances(ctx context.Context) ([]entities.Account, error) {
-	accounts, err := uc.accountRepo.GetAccountsWithBalances(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get accounts with balances: %w", err)
 	}
 
 	return accounts, nil
@@ -153,6 +148,17 @@ func (uc *AccountUseCase) validateAccount(account entities.Account) error {
 
 	if !isValidType {
 		return fmt.Errorf("invalid account type: %s", account.Type)
+	}
+
+	// Validate asset
+	if account.Asset.Asset == "" {
+		return fmt.Errorf("account asset cannot be empty")
+	}
+
+	// Verify that the asset is valid by checking if it exists in the monetary package
+	_, ok := monetary.FindAssetByName(account.Asset.Asset)
+	if !ok {
+		return fmt.Errorf("invalid asset: %s", account.Asset.Asset)
 	}
 
 	return nil

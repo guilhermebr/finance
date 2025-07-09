@@ -3,25 +3,25 @@
 -- =============================================================================
 
 -- name: CreateAccount :one
-INSERT INTO accounts (name, type, description)
-VALUES ($1, $2, $3)
-RETURNING id, name, type, description, created_at, updated_at;
+INSERT INTO accounts (name, type, description, asset)
+VALUES ($1, $2, $3, $4)
+RETURNING id, name, type, description, asset, created_at, updated_at;
 
 -- name: GetAccountByID :one
-SELECT id, name, type, description, created_at, updated_at
+SELECT id, name, type, description, asset, created_at, updated_at
 FROM accounts
 WHERE id = $1;
 
 -- name: GetAllAccounts :many
-SELECT id, name, type, description, created_at, updated_at
+SELECT id, name, type, description, asset, created_at, updated_at
 FROM accounts
 ORDER BY name;
 
 -- name: UpdateAccount :one
 UPDATE accounts
-SET name = $2, type = $3, description = $4, updated_at = NOW()
+SET name = $2, type = $3, description = $4, asset = $5, updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, type, description, created_at, updated_at;
+RETURNING id, name, type, description, asset, created_at, updated_at;
 
 -- name: DeleteAccount :exec
 DELETE FROM accounts WHERE id = $1;
@@ -151,7 +151,7 @@ JOIN accounts a ON b.account_id = a.id;
 -- name: GetTransactionWithDetails :one
 SELECT 
     t.id, t.account_id, t.category_id, t.amount, t.description, t.date, t.status, t.created_at, t.updated_at,
-    a.name as account_name, a.type as account_type,
+    a.name as account_name, a.type as account_type, a.asset as account_asset,
     c.name as category_name, c.type as category_type, c.color as category_color
 FROM transactions t
 JOIN accounts a ON t.account_id = a.id
@@ -161,7 +161,7 @@ WHERE t.id = $1;
 -- name: GetTransactionsWithDetails :many
 SELECT 
     t.id, t.account_id, t.category_id, t.amount, t.description, t.date, t.status, t.created_at, t.updated_at,
-    a.name as account_name, a.type as account_type,
+    a.name as account_name, a.type as account_type, a.asset as account_asset,
     c.name as category_name, c.type as category_type, c.color as category_color
 FROM transactions t
 JOIN accounts a ON t.account_id = a.id
@@ -171,7 +171,7 @@ LIMIT $1 OFFSET $2;
 
 -- name: GetAccountWithBalance :one
 SELECT 
-    a.id, a.name, a.type, a.description, a.created_at, a.updated_at,
+    a.id, a.name, a.type, a.description, a.asset, a.created_at, a.updated_at,
     COALESCE(b.current_balance, 0) as current_balance,
     COALESCE(b.pending_balance, 0) as pending_balance,
     COALESCE(b.available_balance, 0) as available_balance
@@ -181,7 +181,7 @@ WHERE a.id = $1;
 
 -- name: GetAccountsWithBalances :many
 SELECT 
-    a.id, a.name, a.type, a.description, a.created_at, a.updated_at,
+    a.id, a.name, a.type, a.description, a.asset, a.created_at, a.updated_at,
     COALESCE(b.current_balance, 0) as current_balance,
     COALESCE(b.pending_balance, 0) as pending_balance,
     COALESCE(b.available_balance, 0) as available_balance
