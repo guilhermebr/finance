@@ -12,7 +12,7 @@ package main
 //	@license.name	Apache 2.0
 //	@license.url	http://www.apache.org/licenses/LICENSE-2.0.html
 
-//	@host		:3000
+//	@host		0.0.0.0:3000
 //	@BasePath	/api/v1
 
 //	@externalDocs.description	OpenAPI

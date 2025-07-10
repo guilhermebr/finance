@@ -49,30 +49,56 @@
                 <p class="mt-2 text-sm text-gray-600">Personal Finance Overview</p>
             </div>
 
+            <!-- Account Balances -->
+            <div class="mb-8">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Account Balances</h3>
+                {{if .Balances}}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {{range .Balances}}
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                                        <span class="text-white font-semibold">{{if .Account}}{{slice .Account.Name 0 1}}{{else}}A{{end}}</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">{{if .Account}}{{.Account.Name}}{{else}}Account {{.AccountID}}{{end}}</dt>
+                                        <dd class="text-lg font-semibold text-gray-900">{{.CurrentBalance}}</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5 text-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-500">No account balances available</p>
+                        <p class="mt-1 text-xs text-gray-400">Add accounts to see balance information</p>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+
             <!-- Quick Stats -->
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2 mb-8">
                 <div class="bg-white overflow-hidden shadow rounded-lg">
                     <div class="px-4 py-5 sm:p-6">
-                        <dt class="text-sm font-medium text-gray-500 truncate">Total Balance</dt>
-                        <dd class="mt-1 text-3xl font-semibold text-gray-900">$0.00</dd>
-                    </div>
-                </div>
-                <div class="bg-white overflow-hidden shadow rounded-lg">
-                    <div class="px-4 py-5 sm:p-6">
-                        <dt class="text-sm font-medium text-gray-500 truncate">This Month</dt>
-                        <dd class="mt-1 text-3xl font-semibold text-green-600">+$0.00</dd>
-                    </div>
-                </div>
-                <div class="bg-white overflow-hidden shadow rounded-lg">
-                    <div class="px-4 py-5 sm:p-6">
-                        <dt class="text-sm font-medium text-gray-500 truncate">Expenses</dt>
-                        <dd class="mt-1 text-3xl font-semibold text-red-600">-$0.00</dd>
-                    </div>
-                </div>
-                <div class="bg-white overflow-hidden shadow rounded-lg">
-                    <div class="px-4 py-5 sm:p-6">
-                        <dt class="text-sm font-medium text-gray-500 truncate">Accounts</dt>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Total Accounts</dt>
                         <dd class="mt-1 text-3xl font-semibold text-gray-900">{{len .Accounts}}</dd>
+                    </div>
+                </div>
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Total Transactions</dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900">{{len .Transactions}}</dd>
                     </div>
                 </div>
             </div>
@@ -83,9 +109,95 @@
                     <h3 class="text-lg leading-6 font-medium text-gray-900">Recent Transactions</h3>
                     <p class="mt-1 max-w-2xl text-sm text-gray-500">Latest financial activity</p>
                 </div>
-                <div class="px-4 py-5 sm:p-6">
-                    <p class="text-gray-500 text-center py-8">No recent transactions</p>
+                {{if .Transactions}}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {{range $index, $transaction := .Transactions}}
+                            {{if lt $index 5}}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                            {{if not (eq (slice $transaction.Amount 0 1) "-")}}
+                                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                            </svg>
+                                            {{else}}
+                                            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                            </svg>
+                                            {{end}}
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="text-sm font-medium text-gray-900">{{$transaction.Description}}</div>
+                                            <div class="text-sm text-gray-500">ID: {{$transaction.ID}}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {{$accountName := "Unknown Account"}}
+                                    {{range $.Accounts}}
+                                        {{if eq .ID $transaction.AccountID}}
+                                            {{$accountName = .Name}}
+                                        {{end}}
+                                    {{end}}
+                                    {{$accountName}}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {{$categoryName := "Unknown Category"}}
+                                    {{range $.Categories}}
+                                        {{if eq .ID $transaction.CategoryID}}
+                                            {{$categoryName = .Name}}
+                                        {{end}}
+                                    {{end}}
+                                    {{$categoryName}}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    <div class="text-sm font-medium {{if not (eq (slice $transaction.Amount 0 1) "-")}}text-green-600{{else}}text-red-600{{end}}">
+                                        {{if not (eq (slice $transaction.Amount 0 1) "-")}}+{{end}}{{$transaction.Amount}}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {{$transaction.Date}}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{if eq $transaction.Status "cleared"}}bg-green-100 text-green-800{{else if eq $transaction.Status "pending"}}bg-yellow-100 text-yellow-800{{else}}bg-red-100 text-red-800{{end}}">
+                                        {{$transaction.Status}}
+                                    </span>
+                                </td>
+                            </tr>
+                            {{end}}
+                            {{end}}
+                        </tbody>
+                    </table>
                 </div>
+                {{if gt (len .Transactions) 5}}
+                <div class="px-4 py-3 bg-gray-50 text-right">
+                    <a href="/transactions" class="text-sm text-primary hover:text-blue-700">View all {{len .Transactions}} transactions →</a>
+                </div>
+                {{end}}
+                {{else}}
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="text-center py-8">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-500">No recent transactions</p>
+                        <p class="mt-1 text-xs text-gray-400">Add your first transaction to get started</p>
+                    </div>
+                </div>
+                {{end}}
             </div>
 
             <!-- Quick Actions -->
@@ -117,4 +229,5 @@
         </div>
     </main>
 </body>
+</html> 
 </html> 
